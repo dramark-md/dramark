@@ -25,7 +25,7 @@ translation:
 
 @劳伦斯 @汉密尔顿
 = The ten-dollar founding father without a father
-这位没有父亲的十美金开国元勋
+这位$没有父亲的$十美金开国元勋
 = Got a lot farther by working a lot harder
 靠着更努力的工作、更敏锐的头脑
 = By being a lot smarter, by being a self-starter

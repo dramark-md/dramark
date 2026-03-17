@@ -225,12 +225,12 @@ function parseCharacterDeclaration(line: string): CharacterBlock | null {
     return null;
   }
 
-  const moodMatch = line.match(/\[(.+?)\]\s*$/u);
-  const mood = moodMatch?.[1]?.trim();
+  const moodMatch = line.match(/(?:\[(.+?)\]|【(.+?)】)\s*$/u);
+  const mood = (moodMatch?.[1] ?? moodMatch?.[2])?.trim();
   const withoutMood = moodMatch ? line.slice(0, moodMatch.index).trim() : line;
 
   const names: string[] = [];
-  const regex = /@([^@\[]+)/gu;
+  const regex = /@([^@\[【]+)/gu;
   let match = regex.exec(withoutMood);
   while (match !== null) {
     const name = match[1].trim();

@@ -45,4 +45,16 @@ describe('parseDraMark', () => {
     expect(paragraph.type).toBe('paragraph');
     expect(paragraph.children[0].value).toContain('20%');
   });
+
+  it('supports full-width mood annotation in character declarations', () => {
+    const input = ['@哈姆雷特@奥菲莉娅【压抑】', '沉默。'].join('\n');
+
+    const result = parseDraMark(input);
+    const first = result.tree.children[0] as { type: string; name: string; names: string[]; mood?: string };
+
+    expect(first.type).toBe('character-block');
+    expect(first.name).toBe('哈姆雷特');
+    expect(first.names).toEqual(['哈姆雷特', '奥菲莉娅']);
+    expect(first.mood).toBe('压抑');
+  });
 });

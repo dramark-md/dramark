@@ -28,6 +28,15 @@
 4. 缩进注释等场景存在信息丢失风险
 5. 选项与实现存在不一致（例如 `strictMode` 在 parse API 里不生效；`NESTED_SONG_CONTAINER` 基本不可达）
 
+### 执行状态快照（2026-03-18）
+
+- M0：已完成并在测试中覆盖（strict 行为归属、百分号注释词法、防不可达 nested song 警告分支）
+- M1：已完成核心目标（角色对白与 translation target 均可保留 CommonMark block 结构）
+- M2：已完成“插件注入 + inline token”阶段
+  - 已完成：`parserMode: 'legacy' | 'micromark'`、`micromarkExtensions`/`fromMarkdownExtensions` 注入、`<<...>>`/`$...$`/`{...}` 行内 tokenization
+  - 未完成：`@`, `=`, `$$`, `<<<`, `%`, `%%` 的 block construct 迁移
+- 本地回归基线：`pnpm build && pnpm test:run` 通过（4 files / 25 tests）
+
 ---
 
 ## 1. 总目标（Definition of Done）

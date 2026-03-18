@@ -9,6 +9,12 @@
 - 可以作为 unified/remark 插件接入处理链
 - 支持 warning 与 strict mode 报错
 
+当前状态（2026-03-18）：
+- 默认 `legacy` 路径已支持角色、唱段、译配、注释与技术提示等核心能力
+- `micromark` 路径已接入行内 token（`<<...>>`、`$...$`、`{...}`）并通过 from-markdown bridge 生成对应自定义节点
+- `micromark` 路径下插件不再覆盖 `tree.children`；`legacy` 路径仍保持覆盖行为以复用现有状态机
+- 已验证 `pnpm build` 与 `pnpm test:run` 全通过（4 个测试文件，25 个用例）
+
 ## 2. 目录结构
 
 - errors.ts
@@ -102,12 +108,18 @@
 - plugin.test.ts
   - 非 strict 收集 warning
   - strict 抛错
+  - `micromark` 模式下行内 tokenization 生效（包含“inline tech 不跨行”断言）
+  - `micromark` 模式下不覆盖 `tree.children`
 - ham.test.ts
   - 解析 example/ham.md 的集成测试
 
 运行方式：
 - pnpm test:run
 - pnpm build
+
+最近一次本地验证（2026-03-18）：
+- `pnpm build && pnpm test:run`
+- 结果：4 passed files / 25 passed tests
 
 ## 8. 已知限制（v0）
 
@@ -118,8 +130,8 @@
 
 ## 9. 下一步建议
 
-- 引入 micromark 扩展与 from-markdown bridge
-- 增加复杂列表/引用嵌套场景的容器隔离测试与实现（进一步贴近 CommonMark）
+- 补齐 `micromark` block constructs（`@`, `=`, `$$`, `<<<`, `%`, `%%`）并逐步替代 `legacy` 的 block 语义入口
+- 增加复杂列表/引用嵌套场景的容器隔离回归（尤其 `@`/`=` 在容器内的误触发防护）
 - 增加 AST 快照测试，稳定后续重构
 
 当前进度：

@@ -5,7 +5,6 @@ import type { InlineAction, InlineSongSegment, InlineTechCue } from './types.js'
 type FromMarkdownExtensionLike = {
   enter?: Record<string, (this: FromMarkdownCompileContextLike, token: unknown) => void>;
   exit?: Record<string, (this: FromMarkdownCompileContextLike, token: unknown) => void>;
-  transforms?: Array<(tree: unknown) => unknown>;
 };
 
 interface FromMarkdownCompileContextLike {
@@ -39,18 +38,15 @@ const draMarkFromMarkdownExtension: FromMarkdownExtensionLike = {
   },
   exit: {
     dramarkInlineActionValue(): undefined {
-      const node = topNodeWithValue(this.stack);
-      node.value = this.resume();
+      topNodeWithValue(this.stack).value = this.resume();
       return undefined;
     },
     dramarkInlineSongValue(): undefined {
-      const node = topNodeWithValue(this.stack);
-      node.value = this.resume();
+      topNodeWithValue(this.stack).value = this.resume();
       return undefined;
     },
     dramarkInlineTechCueValue(): undefined {
-      const node = topNodeWithValue(this.stack);
-      node.value = this.resume();
+      topNodeWithValue(this.stack).value = this.resume();
       return undefined;
     },
     dramarkInlineAction(token): undefined {
@@ -64,20 +60,6 @@ const draMarkFromMarkdownExtension: FromMarkdownExtensionLike = {
     },
   },
 };
-
-export function registerDraMarkParseExtensions(processor: Processor): void {
-  const data = processor.data() as Record<string, unknown>;
-  appendExtension(data, 'micromarkExtensions', draMarkMicromarkExtension);
-  appendExtension(data, 'fromMarkdownExtensions', draMarkFromMarkdownExtension);
-}
-
-function appendExtension<T>(data: Record<string, unknown>, key: string, extension: T): void {
-  const existing = Array.isArray(data[key]) ? (data[key] as T[]) : [];
-  if (!existing.includes(extension)) {
-    existing.push(extension);
-  }
-  data[key] = existing;
-}
 
 const tokenizeInlineSong: Tokenizer = function tokenizeInlineSong(effects, ok, nok): State {
   let seen = 0;
@@ -233,16 +215,24 @@ const draMarkMicromarkExtension: MicromarkExtension = {
   },
 };
 
+export function registerDraMarkParseExtensions(processor: Processor): void {
+  const data = processor.data() as Record<string, unknown>;
+  appendExtension(data, 'micromarkExtensions', draMarkMicromarkExtension);
+  appendExtension(data, 'fromMarkdownExtensions', draMarkFromMarkdownExtension);
+}
+
+function appendExtension<T>(data: Record<string, unknown>, key: string, extension: T): void {
+  const existing = Array.isArray(data[key]) ? (data[key] as T[]) : [];
+  existing.push(extension);
+  data[key] = existing;
+}
+
 function isLineEnding(code: Code): boolean {
   return code === -5 || code === -4 || code === -3 || code === 10 || code === 13;
 }
 
 function topNodeWithValue(stack: unknown[]): { value: string } {
-  const node = stack[stack.length - 1] as { value?: unknown };
-  if (typeof node !== 'object' || node === null) {
-    return { value: '' };
-  }
-  return node as { value: string };
+  return stack[stack.length - 1] as { value: string };
 }
 
 declare module 'micromark-util-types' {

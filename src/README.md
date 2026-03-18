@@ -140,7 +140,7 @@ parserMode 选项：
 
 最近一次本地验证（2026-03-18）：
 - `pnpm build && pnpm test:run`
-- 结果：4 passed files / 25 passed tests
+- 结果：4 passed files / 34 passed tests
 
 ## 8. 已知限制
 

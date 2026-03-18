@@ -157,4 +157,42 @@ describe('parseDraMark', () => {
     expect(serialized).toContain('= nested source');
     expect(serialized).toContain('容器外对白');
   });
+
+  it('parses inline tech cue in dialogue line', () => {
+    const input = ['@舞监', '执行 <<LX01 GO>> 现在'].join('\n');
+
+    const result = parseDraMark(input);
+    const character = result.tree.children[0] as {
+      type: string;
+      children: Array<{ type: string; children?: Array<{ type: string; value?: string }> }>;
+    };
+    const paragraph = character.children[0] as { children: Array<{ type: string; value?: string }> };
+    const techCue = paragraph.children.find((node) => node.type === 'inline-tech-cue');
+
+    expect(character.type).toBe('character-block');
+    expect(paragraph.children.map((node) => node.type)).toContain('inline-tech-cue');
+    expect(techCue?.value).toBe('LX01 GO');
+  });
+
+  it('does not parse inline-song inside song container and falls back to text', () => {
+    const input = ['$$', '@歌者', '这句 $不应嵌套$ 仍是普通唱段文本', '$$'].join('\n');
+
+    const result = parseDraMark(input);
+    const song = result.tree.children[0] as {
+      type: string;
+      children: Array<{
+        type: string;
+        children: Array<{ type: string; children?: Array<{ type: string; value?: string }> }>;
+      }>;
+    };
+    const character = song.children[0];
+    const paragraph = character.children[0] as { type: string; children: Array<{ type: string; value?: string }> };
+
+    expect(song.type).toBe('song-container');
+    expect(character.type).toBe('character-block');
+    expect(paragraph.type).toBe('paragraph');
+    expect(paragraph.children.some((node) => node.type === 'inline-song')).toBe(false);
+    const text = paragraph.children.map((node) => node.value ?? '').join('');
+    expect(text).toContain('$不应嵌套$');
+  });
 });

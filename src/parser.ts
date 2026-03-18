@@ -49,6 +49,10 @@ export function scanSegments(lines: string[], startIndex: number): ScannedSegmen
   const segments: ScannedSegment[] = [];
   let index = startIndex;
   let contentBuffer: string[] = [];
+  // `contentStartLine` is the 0-based index of the first line currently in
+  // `contentBuffer`.  It is kept in sync every time the buffer is flushed and
+  // reset.  Adding 1 converts it to the 1-based line number stored on the
+  // emitted segment.
   let contentStartLine = startIndex;
 
   function flushContent(): void {
@@ -297,10 +301,10 @@ export function parseDraMark(input: string, options?: DraMarkOptions): DraMarkPa
 
       // ── Translation source = …
       //
-      // Collect the immediately following content segment (if any) as the
-      // translation target. Only one content segment can follow before the
-      // next directive, because scanSegments() never emits two adjacent
-      // content segments.
+      // Peek at the immediately following segment: if it is a `content`
+      // segment, it is the translation target (scanSegments() never emits two
+      // adjacent content segments, so there is at most one).  `nextSi` is the
+      // index we will resume from after handling both segments.
       case 'translation-source': {
         if (!translationEnabled || currentCharacter === null) {
           warnings.push({
@@ -318,15 +322,13 @@ export function parseDraMark(input: string, options?: DraMarkOptions): DraMarkPa
           break;
         }
 
-        // Consume the next segment if it is a content block — that is the
-        // translation target. Any other segment kind means an empty target.
-        let targetLines: string[] = [];
-        if (si + 1 < segments.length && segments[si + 1].kind === 'content') {
-          targetLines = (segments[si + 1] as Extract<ScannedSegment, { kind: 'content' }>).lines;
-          si += 1; // skip the consumed content segment
-        }
+        const nextSi = si + 1;
+        const targetSeg =
+          nextSi < segments.length && segments[nextSi].kind === 'content'
+            ? (segments[nextSi] as Extract<ScannedSegment, { kind: 'content' }>)
+            : null;
 
-        const targetBlocks = parseMarkdownBlocks(targetLines.join('\n'), { allowInlineSong: !inSong });
+        const targetBlocks = parseMarkdownBlocks((targetSeg?.lines ?? []).join('\n'), { allowInlineSong: !inSong });
         const pair: TranslationPair = {
           type: 'translation-pair',
           sourceText: seg.text,
@@ -334,7 +336,9 @@ export function parseDraMark(input: string, options?: DraMarkOptions): DraMarkPa
           children: targetBlocks,
         };
         currentCharacter.children.push(pair);
-        si += 1;
+        // Advance past the translation-source; also skip the content segment if
+        // it was consumed as the translation target.
+        si = targetSeg !== null ? nextSi + 1 : nextSi;
         break;
       }
 

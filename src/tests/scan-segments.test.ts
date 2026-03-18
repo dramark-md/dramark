@@ -7,6 +7,36 @@ function kinds(segs: ScannedSegment[]): string[] {
   return segs.map((s) => s.kind);
 }
 
+// Type-narrowing helpers — avoids verbose `as Extract<…>` casts throughout the tests.
+function asContent(seg: ScannedSegment): Extract<ScannedSegment, { kind: 'content' }> {
+  if (seg.kind !== 'content') throw new Error(`Expected content segment, got ${seg.kind}`);
+  return seg;
+}
+function asHeadingSeg(seg: ScannedSegment): Extract<ScannedSegment, { kind: 'heading' }> {
+  if (seg.kind !== 'heading') throw new Error(`Expected heading segment, got ${seg.kind}`);
+  return seg;
+}
+function asCharSeg(seg: ScannedSegment): Extract<ScannedSegment, { kind: 'character' }> {
+  if (seg.kind !== 'character') throw new Error(`Expected character segment, got ${seg.kind}`);
+  return seg;
+}
+function asCommentBlock(seg: ScannedSegment): Extract<ScannedSegment, { kind: 'comment-block' }> {
+  if (seg.kind !== 'comment-block') throw new Error(`Expected comment-block segment, got ${seg.kind}`);
+  return seg;
+}
+function asBlockTechCue(seg: ScannedSegment): Extract<ScannedSegment, { kind: 'block-tech-cue' }> {
+  if (seg.kind !== 'block-tech-cue') throw new Error(`Expected block-tech-cue segment, got ${seg.kind}`);
+  return seg;
+}
+function asCommentLine(seg: ScannedSegment): Extract<ScannedSegment, { kind: 'comment-line' }> {
+  if (seg.kind !== 'comment-line') throw new Error(`Expected comment-line segment, got ${seg.kind}`);
+  return seg;
+}
+function asTranslationSource(seg: ScannedSegment): Extract<ScannedSegment, { kind: 'translation-source' }> {
+  if (seg.kind !== 'translation-source') throw new Error(`Expected translation-source segment, got ${seg.kind}`);
+  return seg;
+}
+
 describe('scanSegments — Phase 1 (Lexical Shield)', () => {
   it('returns an empty array for an empty input', () => {
     expect(scanSegments([], 0)).toEqual([]);
@@ -16,7 +46,7 @@ describe('scanSegments — Phase 1 (Lexical Shield)', () => {
     const lines = ['Hello world', 'second line'];
     const segs = scanSegments(lines, 0);
     expect(kinds(segs)).toEqual(['content']);
-    expect((segs[0] as Extract<ScannedSegment, { kind: 'content' }>).lines).toEqual(['Hello world', 'second line']);
+    expect(asContent(segs[0]).lines).toEqual(['Hello world', 'second line']);
   });
 
   it('emits a song-toggle segment for $$', () => {
@@ -35,9 +65,8 @@ describe('scanSegments — Phase 1 (Lexical Shield)', () => {
     const lines = ['# Scene 1', 'Some text'];
     const segs = scanSegments(lines, 0);
     expect(kinds(segs)).toEqual(['heading', 'content']);
-    const heading = segs[0] as Extract<ScannedSegment, { kind: 'heading' }>;
-    expect(heading.raw).toBe('# Scene 1');
-    expect(heading.lineNo).toBe(1);
+    expect(asHeadingSeg(segs[0]).raw).toBe('# Scene 1');
+    expect(asHeadingSeg(segs[0]).lineNo).toBe(1);
   });
 
   it('emits a thematic-break segment for ---', () => {
@@ -62,24 +91,21 @@ describe('scanSegments — Phase 1 (Lexical Shield)', () => {
   it('emits a character segment for @Name', () => {
     const segs = scanSegments(['@Hamlet'], 0);
     expect(kinds(segs)).toEqual(['character']);
-    const char = segs[0] as Extract<ScannedSegment, { kind: 'character' }>;
-    expect(char.name).toBe('Hamlet');
-    expect(char.names).toEqual(['Hamlet']);
-    expect(char.mood).toBeUndefined();
+    expect(asCharSeg(segs[0]).name).toBe('Hamlet');
+    expect(asCharSeg(segs[0]).names).toEqual(['Hamlet']);
+    expect(asCharSeg(segs[0]).mood).toBeUndefined();
   });
 
   it('parses mood annotation from @Name [Mood]', () => {
     const segs = scanSegments(['@A [angered]'], 0);
-    const char = segs[0] as Extract<ScannedSegment, { kind: 'character' }>;
-    expect(char.name).toBe('A');
-    expect(char.mood).toBe('angered');
+    expect(asCharSeg(segs[0]).name).toBe('A');
+    expect(asCharSeg(segs[0]).mood).toBe('angered');
   });
 
   it('emits a translation-source segment for = …', () => {
     const segs = scanSegments(['= To be, or not to be'], 0);
     expect(kinds(segs)).toEqual(['translation-source']);
-    const src = segs[0] as Extract<ScannedSegment, { kind: 'translation-source' }>;
-    expect(src.text).toBe('To be, or not to be');
+    expect(asTranslationSource(segs[0]).text).toBe('To be, or not to be');
   });
 
   it('does NOT treat indented = … as a translation-source', () => {
@@ -90,40 +116,35 @@ describe('scanSegments — Phase 1 (Lexical Shield)', () => {
   it('emits a comment-line segment for % …', () => {
     const segs = scanSegments(['% stage note'], 0);
     expect(kinds(segs)).toEqual(['comment-line']);
-    const cmt = segs[0] as Extract<ScannedSegment, { kind: 'comment-line' }>;
-    expect(cmt.value).toBe('stage note');
+    expect(asCommentLine(segs[0]).value).toBe('stage note');
   });
 
   it('emits a closed comment-block segment for %% … %%', () => {
     const lines = ['%%', 'director note', '%%'];
     const segs = scanSegments(lines, 0);
     expect(kinds(segs)).toEqual(['comment-block']);
-    const block = segs[0] as Extract<ScannedSegment, { kind: 'comment-block' }>;
-    expect(block.value).toBe('director note');
-    expect(block.closed).toBe(true);
+    expect(asCommentBlock(segs[0]).value).toBe('director note');
+    expect(asCommentBlock(segs[0]).closed).toBe(true);
   });
 
   it('emits an unclosed comment-block when %% is never closed', () => {
     const segs = scanSegments(['%%', 'note without close'], 0);
-    const block = segs[0] as Extract<ScannedSegment, { kind: 'comment-block' }>;
-    expect(block.closed).toBe(false);
+    expect(asCommentBlock(segs[0]).closed).toBe(false);
   });
 
   it('emits a closed block-tech-cue for single-line <<< cue >>>', () => {
     const segs = scanSegments(['<<<LX01 GO>>>'], 0);
     expect(kinds(segs)).toEqual(['block-tech-cue']);
-    const cue = segs[0] as Extract<ScannedSegment, { kind: 'block-tech-cue' }>;
-    expect(cue.value).toBe('LX01 GO');
-    expect(cue.closed).toBe(true);
+    expect(asBlockTechCue(segs[0]).value).toBe('LX01 GO');
+    expect(asBlockTechCue(segs[0]).closed).toBe(true);
   });
 
   it('emits a closed block-tech-cue for multi-line <<< … >>>', () => {
     const lines = ['<<<', 'LX01 GO', 'SND: CLICK', '>>>'];
     const segs = scanSegments(lines, 0);
     expect(kinds(segs)).toEqual(['block-tech-cue']);
-    const cue = segs[0] as Extract<ScannedSegment, { kind: 'block-tech-cue' }>;
-    expect(cue.value).toBe('LX01 GO\nSND: CLICK');
-    expect(cue.closed).toBe(true);
+    expect(asBlockTechCue(segs[0]).value).toBe('LX01 GO\nSND: CLICK');
+    expect(asBlockTechCue(segs[0]).closed).toBe(true);
   });
 
   it('correctly sequences mixed segments in a typical scene', () => {
@@ -149,14 +170,9 @@ describe('scanSegments — Phase 1 (Lexical Shield)', () => {
   it('records correct lineNo for each segment', () => {
     const lines = ['@A', 'text', '---'];
     const segs = scanSegments(lines, 0);
-    const [char, content, reset] = segs as [
-      Extract<ScannedSegment, { kind: 'character' }>,
-      Extract<ScannedSegment, { kind: 'content' }>,
-      Extract<ScannedSegment, { kind: 'thematic-break' }>,
-    ];
-    expect(char.lineNo).toBe(1);
-    expect(content.lineNo).toBe(2);
-    expect(reset.lineNo).toBe(3);
+    expect(asCharSeg(segs[0]).lineNo).toBe(1);
+    expect(asContent(segs[1]).lineNo).toBe(2);
+    expect(segs[2].lineNo).toBe(3); // thematic-break
   });
 
   it('does not merge consecutive content segments across a directive', () => {

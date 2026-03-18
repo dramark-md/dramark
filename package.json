@@ -31,7 +31,8 @@
     "mdast": "^3.0.0",
     "mdast-util-from-markdown": "^2.0.0",
     "micromark-util-types": "^2.0.0",
-    "unified": "^11.0.0"
+    "unified": "^11.0.0",
+    "yaml": "^2.8.2"
   },
   "devDependencies": {
     "@types/mdast": "^4.0.4",

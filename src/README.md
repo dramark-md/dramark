@@ -36,7 +36,14 @@
 输入字符串，返回解析结果：
 - tree: 解析树
 - warnings: 告警列表
-- metadata: 元信息（例如 frontmatter 的 translation 开关）
+- metadata: 元信息（frontmatter 原文透传 + 最小可用开关）
+  - `frontmatterRaw?: string`
+  - `translationEnabledFromFrontmatter: boolean`
+
+说明：
+- Frontmatter 被视为文档配置层，不属于 DraMark 正文语法本体
+- 解析器仅做提取与最小可用判断（例如 `translation.enabled`）
+- 字段归一化与业务消费建议由前端/渲染器处理
 
 ### remark 插件
 
@@ -59,7 +66,7 @@ parserMode 选项：
 ## 4. 语法能力支持矩阵
 
 ### `legacy` 模式（完整支持）
-- frontmatter 提取
+- frontmatter 提取（作为配置层透传）
 - 角色声明：@角色名，支持多角色行声明与情绪注释（[] / 【】）
 - 角色上下文台词吞噬
 - 全局重置：--- *** ___

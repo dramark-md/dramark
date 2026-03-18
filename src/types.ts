@@ -88,6 +88,7 @@ export interface DraMarkParseResult {
   tree: DraMarkRoot;
   warnings: DraMarkWarning[];
   metadata: {
+    frontmatterRaw?: string;
     translationEnabledFromFrontmatter: boolean;
   };
 }

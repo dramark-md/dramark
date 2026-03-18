@@ -160,7 +160,7 @@ export function parseDraMark(input: string, options?: DraMarkOptions): DraMarkPa
         index += 1;
         continue;
       }
-      const pair = consumeTranslationPair(lines, index);
+      const pair = consumeTranslationPair(lines, index, { allowInlineSong: !state.inSong });
       state.currentCharacter.children.push(pair.node);
       index = pair.nextIndex;
       continue;
@@ -301,7 +301,11 @@ function consumeBlockTechCue(lines: string[], start: number): { node: BlockTechC
   };
 }
 
-function consumeTranslationPair(lines: string[], start: number): { node: TranslationPair; nextIndex: number } {
+function consumeTranslationPair(
+  lines: string[],
+  start: number,
+  options?: { allowInlineSong?: boolean },
+): { node: TranslationPair; nextIndex: number } {
   const sourceLine = lines[start].trim().slice(2).trim();
   const targetLines: string[] = [];
 
@@ -331,7 +335,7 @@ function consumeTranslationPair(lines: string[], start: number): { node: Transla
     index += 1;
   }
 
-  const blocks = parseMarkdownBlocks(targetLines.join('\n'));
+  const blocks = parseMarkdownBlocks(targetLines.join('\n'), options);
   return {
     node: {
       type: 'translation-pair',
@@ -364,7 +368,7 @@ function flushContentBuffer(root: DraMarkRoot, state: ParseState): void {
     return;
   }
 
-  const blocks = parseMarkdownBlocks(state.contentBuffer.join('\n'));
+  const blocks = parseMarkdownBlocks(state.contentBuffer.join('\n'), { allowInlineSong: !state.inSong });
   for (const block of blocks) {
     pushNode(root, state, block);
   }
@@ -372,11 +376,11 @@ function flushContentBuffer(root: DraMarkRoot, state: ParseState): void {
   state.contentBuffer.length = 0;
 }
 
-function parseMarkdownBlocks(markdown: string): Content[] {
+function parseMarkdownBlocks(markdown: string, options?: { allowInlineSong?: boolean }): Content[] {
   const tree = fromMarkdown(markdown);
   const blocks = tree.children as Content[];
   for (const block of blocks) {
-    transformInlineMarkersInTree(block);
+    transformInlineMarkersInTree(block, { allowInlineSong: options?.allowInlineSong ?? true });
   }
   return blocks;
 }

@@ -1,26 +1,33 @@
 import type { PhrasingContent } from 'mdast';
 import type { InlineAction, InlineSongSegment, InlineTechCue } from './types.js';
 
-export function transformInlineMarkersInTree(node: unknown): void {
+export interface InlineMarkerParseOptions {
+  allowInlineSong?: boolean;
+}
+
+export function transformInlineMarkersInTree(node: unknown, options?: InlineMarkerParseOptions): void {
   if (!hasChildren(node)) {
     return;
   }
 
+  normalizeHtmlSplitTechCues(node.children);
+
   for (let i = 0; i < node.children.length; i += 1) {
     const child = node.children[i];
     if (isTextNode(child)) {
-      const replacements = parseInlineContent(child.value);
+      const replacements = parseInlineContent(child.value, options);
       node.children.splice(i, 1, ...replacements);
       i += replacements.length - 1;
       continue;
     }
-    transformInlineMarkersInTree(child);
+    transformInlineMarkersInTree(child, options);
   }
 }
 
-export function parseInlineContent(line: string): PhrasingContent[] {
+export function parseInlineContent(line: string, options?: InlineMarkerParseOptions): PhrasingContent[] {
   const nodes: PhrasingContent[] = [];
   let cursor = 0;
+  const allowInlineSong = options?.allowInlineSong ?? true;
 
   const pushText = (value: string): void => {
     if (value.length > 0) {
@@ -53,6 +60,12 @@ export function parseInlineContent(line: string): PhrasingContent[] {
     }
 
     if (token === '$') {
+      if (!allowInlineSong) {
+        pushText('$');
+        cursor = actionStart + 1;
+        continue;
+      }
+
       const close = line.indexOf('$', actionStart + 1);
       if (close > actionStart + 1) {
         const value = line.slice(actionStart + 1, close);
@@ -91,6 +104,50 @@ function hasChildren(node: unknown): node is { children: unknown[] } {
 
 function isTextNode(node: unknown): node is { type: 'text'; value: string } {
   return typeof node === 'object' && node !== null && (node as { type?: string }).type === 'text' && typeof (node as { value?: unknown }).value === 'string';
+}
+
+function isHtmlNode(node: unknown): node is { type: 'html'; value: string } {
+  return typeof node === 'object' && node !== null && (node as { type?: string }).type === 'html' && typeof (node as { value?: unknown }).value === 'string';
+}
+
+function normalizeHtmlSplitTechCues(children: unknown[]): void {
+  for (let i = 0; i + 2 < children.length; i += 1) {
+    const left = children[i];
+    const middle = children[i + 1];
+    const right = children[i + 2];
+
+    if (!isTextNode(left) || !isHtmlNode(middle) || !isTextNode(right)) {
+      continue;
+    }
+
+    if (!left.value.endsWith('<') || !right.value.startsWith('>')) {
+      continue;
+    }
+
+    if (!middle.value.startsWith('<') || !middle.value.endsWith('>')) {
+      continue;
+    }
+
+    const cueValue = middle.value.slice(1, -1);
+    if (cueValue.length === 0 || cueValue.includes('\n')) {
+      continue;
+    }
+
+    const leftText = left.value.slice(0, -1);
+    const rightText = right.value.slice(1);
+
+    const replacements: PhrasingContent[] = [];
+    if (leftText.length > 0) {
+      replacements.push({ type: 'text', value: leftText });
+    }
+    replacements.push({ type: 'inline-tech-cue', value: cueValue } satisfies InlineTechCue);
+    if (rightText.length > 0) {
+      replacements.push({ type: 'text', value: rightText });
+    }
+
+    children.splice(i, 3, ...replacements);
+    i += replacements.length - 1;
+  }
 }
 
 function unescapeDraMark(value: string): string {

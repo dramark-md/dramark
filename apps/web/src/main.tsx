@@ -5,6 +5,16 @@ import type { OutlineItem } from '../../../src/core/index.js';
 import type { DraMarkRootContent } from '../../../src/types.js';
 import './styles.css';
 
+interface RenderNode {
+  type: string;
+  value?: string;
+  depth?: number;
+  name?: string;
+  sourceText?: string;
+  children?: RenderNode[];
+  target?: RenderNode[];
+}
+
 const INITIAL_TEXT = `---
 meta:
   title: Hamlet Demo
@@ -134,36 +144,34 @@ function OutlineList({ items }: { items: OutlineItem[] }): React.JSX.Element {
 }
 
 function renderNodes(nodes: DraMarkRootContent[]): React.JSX.Element[] {
-  return nodes.map((node, index) => {
-    if (node.type === 'character-block') {
-      return (
-        <article key={`character-${index}`} className="preview-card character-card">
-          <h3>@{node.name}</h3>
-          {node.children.map((child, childIndex) => (
-            <div key={`character-child-${childIndex}`}>{renderNode(child)}</div>
-          ))}
-        </article>
-      );
-    }
-
-    if (node.type === 'song-container') {
-      return (
-        <article key={`song-${index}`} className="preview-card song-card">
-          <h3>Song</h3>
-          {node.children.map((child, childIndex) => (
-            <div key={`song-child-${childIndex}`}>{renderNode(child)}</div>
-          ))}
-        </article>
-      );
-    }
-
-    return <div key={`root-${index}`}>{renderNode(node)}</div>;
-  });
+  return nodes.map((node, index) => <div key={`root-${index}`}>{renderNode(node)}</div>);
 }
 
-function renderNode(node: DraMarkRootContent): React.JSX.Element {
+function renderNode(node: DraMarkRootContent | RenderNode): React.JSX.Element {
+  if (node.type === 'character-block') {
+    return (
+      <article className="preview-card character-card">
+        <h3>@{node.name ?? ''}</h3>
+        {(node.children ?? []).map((child, childIndex) => (
+          <div key={`character-child-${childIndex}`}>{renderNode(child as DraMarkRootContent)}</div>
+        ))}
+      </article>
+    );
+  }
+
+  if (node.type === 'song-container') {
+    return (
+      <article className="preview-card song-card">
+        <h3>Song</h3>
+        {(node.children ?? []).map((child, childIndex) => (
+          <div key={`song-child-${childIndex}`}>{renderNode(child as DraMarkRootContent)}</div>
+        ))}
+      </article>
+    );
+  }
+
   if (node.type === 'heading') {
-    const content = flattenText(node as unknown as { children?: Array<{ value?: string }> });
+    const content = renderPhrasingChildren((node as RenderNode).children);
     return <h3>{content}</h3>;
   }
 
@@ -174,41 +182,159 @@ function renderNode(node: DraMarkRootContent): React.JSX.Element {
   if (node.type === 'translation-pair') {
     return (
       <div className="translation-pair">
-        <p className="translation-source">= {node.sourceText}</p>
-        {node.target.map((targetNode, index) => (
-          <p key={`target-${index}`}>{flattenText(targetNode as unknown as { children?: Array<{ value?: string }>; value?: string })}</p>
+        <p className="translation-source">= {node.sourceText ?? ''}</p>
+        {(node.target ?? []).map((targetNode, index) => (
+          <div key={`target-${index}`}>{renderMarkdownBlock(targetNode as RenderNode)}</div>
         ))}
       </div>
     );
   }
 
   if (node.type === 'paragraph') {
-    return <p>{flattenText(node as unknown as { children?: Array<{ value?: string }> })}</p>;
+    return <p>{renderPhrasingChildren((node as RenderNode).children)}</p>;
+  }
+
+  if (node.type === 'list') {
+    return (
+      <ul>
+        {(node.children ?? []).map((item, itemIndex) => (
+          <li key={`list-item-${itemIndex}`}>{renderMarkdownBlock(item as RenderNode)}</li>
+        ))}
+      </ul>
+    );
+  }
+
+  if (node.type === 'blockquote') {
+    return (
+      <blockquote>
+        {(node.children ?? []).map((item, itemIndex) => (
+          <div key={`blockquote-item-${itemIndex}`}>{renderMarkdownBlock(item as RenderNode)}</div>
+        ))}
+      </blockquote>
+    );
   }
 
   if (node.type === 'frontmatter') {
     return <p className="muted">frontmatter loaded</p>;
   }
 
-  if (node.type === 'comment-line' || node.type === 'comment-block' || node.type === 'block-tech-cue') {
+  if (node.type === 'block-tech-cue') {
+    return <pre className="block-tech-cue">{node.value ?? ''}</pre>;
+  }
+
+  if (node.type === 'comment-line' || node.type === 'comment-block') {
     return <p className="muted">[{node.type}]</p>;
   }
 
   return <p className="muted">[{node.type}]</p>;
 }
 
-function flattenText(node: { value?: string; children?: Array<{ value?: string; children?: Array<{ value?: string }> }> }): string {
-  if (typeof node.value === 'string') {
-    return node.value;
+function renderMarkdownBlock(node: RenderNode): React.JSX.Element {
+  if (node.type === 'paragraph') {
+    return <p>{renderPhrasingChildren(node.children)}</p>;
   }
-  if (!Array.isArray(node.children)) {
+
+  if (node.type === 'list') {
+    return (
+      <ul>
+        {(node.children ?? []).map((child, index) => (
+          <li key={`nested-list-item-${index}`}>{renderMarkdownBlock(child)}</li>
+        ))}
+      </ul>
+    );
+  }
+
+  if (node.type === 'listItem') {
+    return (
+      <>
+        {(node.children ?? []).map((child, index) => (
+          <div key={`list-item-child-${index}`}>{renderMarkdownBlock(child)}</div>
+        ))}
+      </>
+    );
+  }
+
+  if (node.type === 'blockquote') {
+    return (
+      <blockquote>
+        {(node.children ?? []).map((child, index) => (
+          <div key={`nested-blockquote-${index}`}>{renderMarkdownBlock(child)}</div>
+        ))}
+      </blockquote>
+    );
+  }
+
+  if (node.type === 'text') {
+    return <>{node.value}</>;
+  }
+
+  return <p>{flattenTextFromNode(node)}</p>;
+}
+
+function renderPhrasingChildren(children?: RenderNode[]): React.ReactNode {
+  if (!Array.isArray(children)) {
     return '';
   }
 
-  return node.children
-    .map((child) => flattenText(child as { value?: string; children?: Array<{ value?: string }> }))
-    .join('')
-    .trim();
+  return children.map((child, index) => {
+    if (child.type === 'text') {
+      return <React.Fragment key={`text-${index}`}>{child.value}</React.Fragment>;
+    }
+
+    if (child.type === 'emphasis') {
+      return <em key={`emphasis-${index}`}>{renderPhrasingChildren(child.children)}</em>;
+    }
+
+    if (child.type === 'strong') {
+      return <strong key={`strong-${index}`}>{renderPhrasingChildren(child.children)}</strong>;
+    }
+
+    if (child.type === 'inline-action') {
+      return (
+        <span key={`action-${index}`} className="inline-action">
+          {`{${flattenTextFromNode(child)}}`}
+        </span>
+      );
+    }
+
+    if (child.type === 'inline-song') {
+      return (
+        <span key={`song-${index}`} className="inline-song">
+          {child.value}
+        </span>
+      );
+    }
+
+    if (child.type === 'inline-tech-cue') {
+      return (
+        <span key={`cue-${index}`} className="inline-tech-cue">
+          {'<<'}{child.value ?? ''}{'>>'}
+        </span>
+      );
+    }
+
+    if ('children' in child && Array.isArray(child.children)) {
+      return <React.Fragment key={`nested-${index}`}>{renderPhrasingChildren(child.children)}</React.Fragment>;
+    }
+
+    if ('value' in child && typeof child.value === 'string') {
+      return <React.Fragment key={`value-${index}`}>{child.value}</React.Fragment>;
+    }
+
+    return null;
+  });
+}
+
+function flattenTextFromNode(node: RenderNode): string {
+  if ('value' in node && typeof node.value === 'string') {
+    return node.value;
+  }
+
+  if ('children' in node && Array.isArray(node.children)) {
+    return node.children.map((child) => flattenTextFromNode(child)).join('').trim();
+  }
+
+  return '';
 }
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(

@@ -49,6 +49,8 @@ describe('remarkDraMark plugin', () => {
     const file = new VFile({ value: '@A\n普通 markdown 行' });
     const tree = processor.parse(file) as { children: Array<{ type: string }> };
 
+    expect(tree.children[0].type).toBe('paragraph');
+
     await processor.run(tree, file);
 
     expect(tree.children[0].type).toBe('paragraph');

@@ -19,13 +19,18 @@ const remarkDraMark: Plugin<[RemarkDraMarkPluginOptions?], Root> = function rema
   if (parserMode === 'micromark') {
     registerDraMarkParseExtensions(this);
     return (_tree, file): void => {
+      const input = typeof file.value === 'string' ? file.value : String(file.value ?? '');
+      const result = parseDraMark(input, options);
+
       file.data.dramark = {
-        warnings: [],
-        metadata: {
-          translationEnabledFromFrontmatter: false,
-        },
+        warnings: result.warnings,
+        metadata: result.metadata,
         parserMode,
       };
+
+      if (options?.strictMode && result.warnings.length > 0) {
+        throw warningToError(result.warnings[0]);
+      }
     };
   }
 

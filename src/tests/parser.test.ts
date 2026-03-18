@@ -9,6 +9,20 @@ describe('parseDraMark', () => {
     expect(result.warnings.map((warning) => warning.code)).toContain('TRANSLATION_OUTSIDE_CHARACTER');
   });
 
+  it('exposes raw frontmatter in metadata for frontend-side normalization', () => {
+    const input = ['---', 'meta:', '  title: Demo', 'unknown_field:', '  keep: true', '---', '@A', '台词'].join('\n');
+    const result = parseDraMark(input);
+
+    expect(result.warnings).toHaveLength(0);
+    expect(result.metadata.frontmatterRaw).toContain('meta:');
+    expect(result.metadata.frontmatterRaw).toContain('unknown_field:');
+  });
+
+  it('keeps frontmatter metadata undefined when no frontmatter exists', () => {
+    const result = parseDraMark('@A\n台词');
+    expect(result.metadata.frontmatterRaw).toBeUndefined();
+  });
+
   it('parses character declarations and dialogue blocks', () => {
     const input = ['@哈姆雷特', '生存还是毁灭，这是一个问题。', '---', '舞台恢复安静。'].join('\n');
 

@@ -185,6 +185,7 @@ export function parseDraMark(input: string, options?: DraMarkOptions): DraMarkPa
     tree: root,
     warnings,
     metadata: {
+      frontmatterRaw: frontmatter?.value,
       translationEnabledFromFrontmatter: translationFromFrontmatter,
     },
   };

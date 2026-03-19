@@ -225,4 +225,14 @@ describe('scanSegments — Phase 1 (Lexical Shield)', () => {
     const segs = scanSegments(['  !!'], 0);
     expect(kinds(segs)).toEqual(['content']);
   });
+
+  it('parses @@ as character-exit token', () => {
+    const segs = scanSegments(['@A', '@@', 'line'], 0);
+    expect(kinds(segs)).toEqual(['character', 'character-exit', 'content']);
+  });
+
+  it('parses single-line = as translation-exit token', () => {
+    const segs = scanSegments(['= source', '=', 'after'], 0);
+    expect(kinds(segs)).toEqual(['translation-source', 'translation-exit', 'content']);
+  });
 });

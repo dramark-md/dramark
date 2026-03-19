@@ -18,12 +18,15 @@ import type {
   TranslationPair,
 } from './types.js';
 
-// ─── Phase 1 types: Lexical Shield ───────────────────────────────────────────
-//
-// scanSegments() converts raw input lines into a flat list of ScannedSegments.
-// Each segment corresponds to exactly one DraMark block-level construct or a
-// run of CommonMark content lines. No DraMark state (character context, song
-// context) is tracked here — that belongs to Phase 3 (assembly).
+type CharacterScan = {
+  name: string;
+  names: string[];
+  mood?: string;
+  remainder: string;
+  attachmentsMarkdown?: string;
+  commentText?: string;
+  invalidName: boolean;
+};
 
 export type ScannedSegment =
   | { kind: 'song-toggle'; title?: string; lineNo: number }
@@ -33,29 +36,56 @@ export type ScannedSegment =
   | { kind: 'comment-block'; value: string; closed: boolean; lineNo: number }
   | { kind: 'block-tech-cue'; value: string; closed: boolean; lineNo: number }
   | { kind: 'comment-line'; value: string; lineNo: number }
-  | { kind: 'character'; name: string; names: string[]; mood?: string; lineNo: number }
+  | ({ kind: 'character'; raw: string; lineNo: number } & CharacterScan)
+  | { kind: 'character-exit'; lineNo: number }
   | { kind: 'translation-source'; text: string; lineNo: number }
+  | { kind: 'translation-exit'; lineNo: number }
   | { kind: 'content'; lines: string[]; lineNo: number };
 
-/**
- * Phase 1 — Lexical scan.
- *
- * Walks `lines` starting at `startIndex` and emits one `ScannedSegment` per
- * DraMark block-level directive or per run of content lines. No DraMark
- * semantic state is tracked here. The resulting array is then consumed by
- * `parseDraMark`'s Phase-3 assembler.
- *
- * Exported for independent unit testing.
- */
+type RootFrame = {
+  kind: 'root';
+  children: DraMarkRootContent[];
+};
+
+type SongFrame = {
+  kind: 'song';
+  node: SongContainer;
+  lineNo: number;
+};
+
+type SpokenFrame = {
+  kind: 'spoken';
+  node: SpokenSegment;
+  lineNo: number;
+};
+
+type CharacterFrame = {
+  kind: 'character';
+  node: CharacterBlock;
+  lineNo: number;
+};
+
+type TranslationFrame = {
+  kind: 'translation';
+  node: TranslationPair;
+  lineNo: number;
+  targetChunks: string[];
+  attached: DraMarkRootContent[];
+};
+
+type StackFrame = RootFrame | SongFrame | SpokenFrame | CharacterFrame | TranslationFrame;
+
+type FenceState = {
+  marker: '`' | '~';
+  minLength: number;
+};
+
 export function scanSegments(lines: string[], startIndex: number): ScannedSegment[] {
   const segments: ScannedSegment[] = [];
   let index = startIndex;
   let contentBuffer: string[] = [];
-  // `contentStartLine` is the 0-based index of the first line currently in
-  // `contentBuffer`.  It is kept in sync every time the buffer is flushed and
-  // reset.  Adding 1 converts it to the 1-based line number stored on the
-  // emitted segment.
   let contentStartLine = startIndex;
+  let fenceState: FenceState | null = null;
 
   function flushContent(): void {
     if (contentBuffer.length === 0) {
@@ -71,7 +101,25 @@ export function scanSegments(lines: string[], startIndex: number): ScannedSegmen
     const lineNo = index + 1;
     const isRoot = isRootDirectiveLine(rawLine);
 
-    // ── Song container toggle $$ or $$ Title
+    if (fenceState !== null) {
+      contentBuffer.push(rawLine);
+      index += 1;
+      if (isFenceCloseLine(rawLine, fenceState)) {
+        fenceState = null;
+      }
+      continue;
+    }
+
+    if (isRoot) {
+      const openingFence = parseFenceOpen(rawLine);
+      if (openingFence !== null) {
+        contentBuffer.push(rawLine);
+        fenceState = openingFence;
+        index += 1;
+        continue;
+      }
+    }
+
     if (isRoot && (trimmed === '$$' || trimmed.startsWith('$$ '))) {
       flushContent();
       const title = trimmed.length > 3 ? trimmed.slice(3).trim() : undefined;
@@ -81,7 +129,6 @@ export function scanSegments(lines: string[], startIndex: number): ScannedSegmen
       continue;
     }
 
-    // ── Spoken segment toggle !!
     if (isRoot && trimmed === '!!') {
       flushContent();
       segments.push({ kind: 'spoken-toggle', lineNo });
@@ -90,7 +137,6 @@ export function scanSegments(lines: string[], startIndex: number): ScannedSegmen
       continue;
     }
 
-    // ── ATX heading (# … ###### )
     if (isRootHeading(rawLine)) {
       flushContent();
       segments.push({ kind: 'heading', raw: rawLine, lineNo });
@@ -99,7 +145,6 @@ export function scanSegments(lines: string[], startIndex: number): ScannedSegmen
       continue;
     }
 
-    // ── Thematic break / context reset --- *** ___
     if (isRootReset(rawLine)) {
       flushContent();
       segments.push({ kind: 'thematic-break', lineNo });
@@ -108,7 +153,6 @@ export function scanSegments(lines: string[], startIndex: number): ScannedSegmen
       continue;
     }
 
-    // ── Block comment %% … %%
     if (isRoot && trimmed === '%%') {
       flushContent();
       const result = consumeBlockComment(lines, index);
@@ -118,7 +162,6 @@ export function scanSegments(lines: string[], startIndex: number): ScannedSegmen
       continue;
     }
 
-    // ── Block tech cue <<< … >>>
     if (isRoot && trimmed.startsWith('<<<')) {
       flushContent();
       const result = consumeBlockTechCue(lines, index);
@@ -128,7 +171,6 @@ export function scanSegments(lines: string[], startIndex: number): ScannedSegmen
       continue;
     }
 
-    // ── Line comment % …
     if (isRoot && isLineComment(rawLine)) {
       flushContent();
       segments.push({ kind: 'comment-line', value: rawLine.trim().slice(1).trim(), lineNo });
@@ -137,19 +179,30 @@ export function scanSegments(lines: string[], startIndex: number): ScannedSegmen
       continue;
     }
 
-    // ── Character declaration @Name [Mood]
-    if (isRoot) {
-      const charInfo = parseCharacterDeclaration(trimmed);
-      if (charInfo !== null) {
+    if (isRoot && trimmed === '@@') {
+      flushContent();
+      segments.push({ kind: 'character-exit', lineNo });
+      index += 1;
+      contentStartLine = index;
+      continue;
+    }
+
+    if (isRoot && trimmed.startsWith('@')) {
+      const character = parseCharacterLine(trimmed);
+      if (character !== null) {
         flushContent();
-        segments.push({ kind: 'character', name: charInfo.name, names: charInfo.names, mood: charInfo.mood, lineNo });
+        segments.push({
+          kind: 'character',
+          raw: trimmed,
+          lineNo,
+          ...character,
+        });
         index += 1;
         contentStartLine = index;
         continue;
       }
     }
 
-    // ── Translation source = …
     if (isRoot && trimmed.startsWith('= ')) {
       flushContent();
       segments.push({ kind: 'translation-source', text: trimmed.slice(2).trim(), lineNo });
@@ -158,7 +211,14 @@ export function scanSegments(lines: string[], startIndex: number): ScannedSegmen
       continue;
     }
 
-    // ── Regular content line (accumulated into a buffer)
+    if (isRoot && trimmed === '=') {
+      flushContent();
+      segments.push({ kind: 'translation-exit', lineNo });
+      index += 1;
+      contentStartLine = index;
+      continue;
+    }
+
     contentBuffer.push(rawLine);
     index += 1;
   }
@@ -167,123 +227,189 @@ export function scanSegments(lines: string[], startIndex: number): ScannedSegmen
   return segments;
 }
 
-// ─── Public entry point ───────────────────────────────────────────────────────
-
 export function parseDraMark(input: string, options?: DraMarkOptions): DraMarkParseResult {
   const opts = defaultOptions(options);
-  const lines = input.split(/\r?\n/u);
+  const pass1MarkedInput = runPass1MicromarkMarking(input);
+  const lines = pass1MarkedInput.split(/\r?\n/u);
   const warnings: DraMarkWarning[] = [];
   const root: DraMarkRoot = { type: 'root', children: [] };
 
-  // ── Phase 0: Extract YAML frontmatter ────────────────────────────────────
-  const frontmatter = consumeFrontmatter(lines);
-  let translationFromFrontmatter = false;
-  if (frontmatter !== null) {
-    translationFromFrontmatter = /translation\s*:\s*[\s\S]*?enabled\s*:\s*true/iu.test(frontmatter.value);
-    root.children.push(frontmatter);
+  const frontmatterPass = runPass0FrontmatterExtraction(lines, root);
+  const translationEnabled = opts.translationEnabled || frontmatterPass.translationEnabledFromFrontmatter;
+  const segments = runPass2LexicalScan(lines, frontmatterPass.startIndex);
+
+  const stack: StackFrame[] = [{ kind: 'root', children: root.children }];
+
+  function hasFrame(kind: StackFrame['kind']): boolean {
+    return stack.some((frame) => frame.kind === kind);
   }
 
-  const translationEnabled = opts.translationEnabled || translationFromFrontmatter;
-  const startIndex = frontmatter !== null ? frontmatter.endLine + 1 : 0;
+  function isInSungContext(): boolean {
+    return hasFrame('song') && !hasFrame('spoken');
+  }
 
-  // ── Phase 1: Lexical scan — build flat segment list ──────────────────────
-  const segments = scanSegments(lines, startIndex);
-
-  // ── Phase 3: DraMark assembly — apply state machine over segments ─────────
-  //
-  // "Phase 2" (CommonMark parsing via fromMarkdown) is embedded inside the
-  // assembler: content segments are parsed on-demand as they are encountered.
-
-  let inSong = false;
-  let inSpoken = false;
-  let currentSong: SongContainer | null = null;
-  let currentSpoken: SpokenSegment | null = null;
-  let currentCharacter: CharacterBlock | null = null;
-
-  function currentContainer(): DraMarkRootContent[] {
-    if (currentSpoken !== null) {
-      return currentSpoken.children as DraMarkRootContent[];
-    }
-    if (currentSong !== null) {
-      return currentSong.children as DraMarkRootContent[];
+  function currentStructuralChildren(): DraMarkRootContent[] {
+    for (let i = stack.length - 1; i >= 0; i -= 1) {
+      const frame = stack[i];
+      if (frame.kind === 'translation') {
+        continue;
+      }
+      if (frame.kind === 'root') {
+        return frame.children;
+      }
+      return frame.node.children;
     }
     return root.children;
   }
 
-  function pushNode(node: DraMarkRootContent): void {
-    if (currentCharacter !== null) {
-      currentCharacter.children.push(node);
-    } else {
-      currentContainer().push(node);
+  function topTranslationFrame(): TranslationFrame | null {
+    const top = stack[stack.length - 1];
+    return top?.kind === 'translation' ? top : null;
+  }
+
+  function topCharacterFrame(): CharacterFrame | null {
+    for (let i = stack.length - 1; i >= 0; i -= 1) {
+      const frame = stack[i];
+      if (frame.kind === 'character') {
+        return frame;
+      }
+    }
+    return null;
+  }
+
+  function nearestSongFrame(): SongFrame | null {
+    for (let i = stack.length - 1; i >= 0; i -= 1) {
+      const frame = stack[i];
+      if (frame.kind === 'song') {
+        return frame;
+      }
+    }
+    return null;
+  }
+
+  function addNode(node: DraMarkRootContent): void {
+    const translation = topTranslationFrame();
+    if (translation !== null) {
+      translation.attached.push(node);
+      return;
+    }
+    currentStructuralChildren().push(node);
+  }
+
+  function finalizeTranslation(frame: TranslationFrame): void {
+    const markdown = frame.targetChunks.join('\n');
+    const targetBlocks = markdown.length > 0 ? parseMarkdownBlocks(markdown, { inSongContext: isInSungContext() }) : [];
+    frame.node.target = targetBlocks;
+    frame.node.children = [...targetBlocks, ...frame.attached];
+  }
+
+  function closeTopFrame(): void {
+    if (stack.length <= 1) {
+      return;
+    }
+    const frame = stack.pop();
+    if (frame?.kind === 'translation') {
+      finalizeTranslation(frame);
     }
   }
 
-  let si = 0;
-  while (si < segments.length) {
-    const seg = segments[si];
+  function closeKinds(kinds: Set<StackFrame['kind']>): void {
+    while (stack.length > 1 && kinds.has(stack[stack.length - 1].kind)) {
+      closeTopFrame();
+    }
+  }
 
+  function closeThrough(kind: StackFrame['kind']): boolean {
+    while (stack.length > 1) {
+      if (stack[stack.length - 1].kind === kind) {
+        closeTopFrame();
+        return true;
+      }
+      closeTopFrame();
+    }
+    return false;
+  }
+
+  function closeAllToRoot(): void {
+    while (stack.length > 1) {
+      closeTopFrame();
+    }
+  }
+
+  function pushLiteralContent(line: string): void {
+    const translation = topTranslationFrame();
+    if (translation !== null) {
+      translation.targetChunks.push(line);
+      return;
+    }
+
+    const blocks = parseMarkdownBlocks(line, { inSongContext: isInSungContext() });
+    for (const block of blocks) {
+      currentStructuralChildren().push(block);
+    }
+  }
+
+  function openCharacterFromSegment(seg: Extract<ScannedSegment, { kind: 'character' }>): CharacterFrame {
+    const character: CharacterBlock = {
+      type: 'character-block',
+      name: seg.name,
+      names: seg.names,
+      mood: seg.mood,
+      children: [],
+    };
+    currentStructuralChildren().push(character);
+    const frame: CharacterFrame = { kind: 'character', node: character, lineNo: seg.lineNo };
+    stack.push(frame);
+    return frame;
+  }
+
+  for (const seg of segments) {
     switch (seg.kind) {
-      // ── $$ toggle (with optional title)
       case 'song-toggle': {
-        if (inSong) {
-          inSong = false;
-          inSpoken = false;
-          currentSong = null;
-          currentSpoken = null;
-          currentCharacter = null;
+        if (hasFrame('song')) {
+          closeThrough('song');
         } else {
+          closeKinds(new Set<StackFrame['kind']>(['translation', 'character']));
           const song: SongContainer = { type: 'song-container', title: seg.title, children: [] };
-          root.children.push(song);
-          inSong = true;
-          inSpoken = false;
-          currentSong = song;
-          currentSpoken = null;
-          currentCharacter = null;
+          currentStructuralChildren().push(song);
+          stack.push({ kind: 'song', node: song, lineNo: seg.lineNo });
         }
-        si += 1;
         break;
       }
 
-      // ── !! spoken segment toggle
       case 'spoken-toggle': {
-        if (inSpoken) {
-          inSpoken = false;
-          currentSpoken = null;
-          currentCharacter = null;
-        } else if (inSong) {
-          const spoken: SpokenSegment = { type: 'spoken-segment', children: [] };
-          currentSong!.children.push(spoken);
-          inSpoken = true;
-          currentSpoken = spoken;
-          currentCharacter = null;
+        if (!hasFrame('song')) {
+          pushLiteralContent('!!');
+          break;
         }
-        si += 1;
+
+        if (hasFrame('spoken')) {
+          closeKinds(new Set<StackFrame['kind']>(['translation', 'character']));
+          closeThrough('spoken');
+        } else {
+          closeKinds(new Set<StackFrame['kind']>(['translation', 'character']));
+          const songFrame = nearestSongFrame();
+          if (songFrame !== null) {
+            const spoken: SpokenSegment = { type: 'spoken-segment', children: [] };
+            songFrame.node.children.push(spoken);
+            stack.push({ kind: 'spoken', node: spoken, lineNo: seg.lineNo });
+          }
+        }
         break;
       }
 
-      // ── Heading: always at root, breaks out of song container
       case 'heading': {
-        currentCharacter = null;
-        if (inSong) {
-          inSong = false;
-          inSpoken = false;
-          currentSong = null;
-          currentSpoken = null;
-        }
+        closeAllToRoot();
         root.children.push(asHeading(seg.raw));
-        si += 1;
         break;
       }
 
-      // ── Thematic break: resets character context; stays inside song container
       case 'thematic-break': {
-        currentCharacter = null;
-        currentContainer().push(asThematicBreak());
-        si += 1;
+        closeKinds(new Set<StackFrame['kind']>(['translation', 'character']));
+        currentStructuralChildren().push(asThematicBreak());
         break;
       }
 
-      // ── Block comment %%
       case 'comment-block': {
         if (!seg.closed) {
           warnings.push({
@@ -294,116 +420,146 @@ export function parseDraMark(input: string, options?: DraMarkOptions): DraMarkPa
           });
         }
         if (opts.includeComments) {
-          pushNode({ type: 'comment-block', value: seg.value } satisfies CommentBlock);
+          addNode({ type: 'comment-block', value: seg.value } satisfies CommentBlock);
         }
-        si += 1;
         break;
       }
 
-      // ── Block tech cue <<< >>>
       case 'block-tech-cue': {
+        closeKinds(new Set<StackFrame['kind']>(['translation', 'character']));
         if (!seg.closed) {
           warnings.push({
             code: 'UNCLOSED_BLOCK_TECH_CUE',
-            message: 'Tech cue block started with <<< but did not close with >>>.',
+            message: 'Tech cue block started with <<< but did not close with >>> or <<<.',
             line: seg.lineNo,
             column: 1,
           });
         }
-        pushNode({ type: 'block-tech-cue', value: seg.value } satisfies BlockTechCue);
-        si += 1;
+        addNode({ type: 'block-tech-cue', value: seg.value } satisfies BlockTechCue);
         break;
       }
 
-      // ── Line comment %
       case 'comment-line': {
         if (opts.includeComments) {
-          pushNode({ type: 'comment-line', value: seg.value } satisfies CommentLine);
+          addNode({ type: 'comment-line', value: seg.value } satisfies CommentLine);
         }
-        si += 1;
         break;
       }
 
-      // ── Character declaration @Name [Mood]
+      case 'character-exit': {
+        closeKinds(new Set<StackFrame['kind']>(['translation', 'character']));
+        break;
+      }
+
       case 'character': {
-        const char: CharacterBlock = {
-          type: 'character-block',
-          name: seg.name,
-          names: seg.names,
-          mood: seg.mood,
-          children: [],
-        };
-        currentContainer().push(char);
-        currentCharacter = char;
-        si += 1;
+        if (seg.invalidName || seg.names.length === 0) {
+          warnings.push({
+            code: 'INVALID_CHARACTER_NAME',
+            message: 'Character declaration has an empty or invalid character name.',
+            line: seg.lineNo,
+            column: 1,
+          });
+          pushLiteralContent(seg.raw);
+          break;
+        }
+
+        if (seg.remainder.length > 0 && opts.characterDeclarationMode === 'strict') {
+          warnings.push({
+            code: 'CHARACTER_DECLARATION_NOT_STANDALONE',
+            message: 'Character declaration must be standalone except inline tech cue or trailing comment.',
+            line: seg.lineNo,
+            column: 1,
+          });
+          pushLiteralContent(seg.raw);
+          break;
+        }
+
+        closeKinds(new Set<StackFrame['kind']>(['translation', 'character']));
+        const characterFrame = openCharacterFromSegment(seg);
+
+        if (seg.attachmentsMarkdown !== undefined && seg.attachmentsMarkdown.length > 0) {
+          const blocks = parseMarkdownBlocks(seg.attachmentsMarkdown, { inSongContext: isInSungContext() });
+          characterFrame.node.children.push(...blocks);
+        }
+
+        if (seg.commentText !== undefined && opts.includeComments) {
+          characterFrame.node.children.push({ type: 'comment-line', value: seg.commentText } satisfies CommentLine);
+        }
+
+        if (seg.remainder.length > 0 && opts.characterDeclarationMode === 'compat') {
+          warnings.push({
+            code: 'DEPRECATED_INLINE_CHARACTER_DECLARATION',
+            message: 'Inline character declaration is deprecated; put dialogue on the next line.',
+            line: seg.lineNo,
+            column: 1,
+          });
+          const blocks = parseMarkdownBlocks(seg.remainder, { inSongContext: isInSungContext() });
+          characterFrame.node.children.push(...blocks);
+        }
+
         break;
       }
 
-      // ── Translation source = …
-      //
-      // Peek at the immediately following segment: if it is a `content`
-      // segment, it is the translation target (scanSegments() never emits two
-      // adjacent content segments, so there is at most one).  `nextSi` is the
-      // index we will resume from after handling both segments.
       case 'translation-source': {
-        if (!translationEnabled || currentCharacter === null) {
+        if (!translationEnabled || topCharacterFrame() === null) {
           warnings.push({
             code: 'TRANSLATION_OUTSIDE_CHARACTER',
             message: 'Translation pair requires translation mode and character context.',
             line: seg.lineNo,
             column: 1,
           });
-          // Treat the source line as plain content so it appears in the tree.
-          const fallback = parseMarkdownBlocks(`= ${seg.text}`, {
-            inSongContext: inSong && !inSpoken,
-          });
-          for (const block of fallback) {
-            pushNode(block);
-          }
-          si += 1;
+          pushLiteralContent(`= ${seg.text}`);
           break;
         }
 
-        const nextSi = si + 1;
-        const targetSeg =
-          nextSi < segments.length && segments[nextSi].kind === 'content'
-            ? (segments[nextSi] as Extract<ScannedSegment, { kind: 'content' }>)
-            : null;
+        closeKinds(new Set<StackFrame['kind']>(['translation']));
+        const character = topCharacterFrame();
+        if (character === null) {
+          break;
+        }
 
-        const targetBlocks = parseMarkdownBlocks((targetSeg?.lines ?? []).join('\n'), {
-          inSongContext: inSong && !inSpoken,
-        });
         const pair: TranslationPair = {
           type: 'translation-pair',
           sourceText: seg.text,
-          target: targetBlocks,
-          children: targetBlocks,
+          target: [],
+          children: [],
         };
-        currentCharacter.children.push(pair);
-        // Advance past the translation-source; also skip the content segment if
-        // it was consumed as the translation target.
-        si = targetSeg !== null ? nextSi + 1 : nextSi;
+        character.node.children.push(pair);
+        stack.push({
+          kind: 'translation',
+          node: pair,
+          lineNo: seg.lineNo,
+          targetChunks: [],
+          attached: [],
+        });
         break;
       }
 
-      // ── Content block: parse with CommonMark (Phase 2) and attach
+      case 'translation-exit': {
+        closeKinds(new Set<StackFrame['kind']>(['translation']));
+        break;
+      }
+
       case 'content': {
-        const blocks = parseMarkdownBlocks(seg.lines.join('\n'), {
-          inSongContext: inSong && !inSpoken,
-        });
-        for (const block of blocks) {
-          pushNode(block);
+        const translation = topTranslationFrame();
+        if (translation !== null) {
+          translation.targetChunks.push(seg.lines.join('\n'));
+          break;
         }
-        si += 1;
+
+        const blocks = parseMarkdownBlocks(seg.lines.join('\n'), {
+          inSongContext: isInSungContext(),
+        });
+        currentStructuralChildren().push(...blocks);
         break;
       }
 
       default:
-        si += 1;
+        break;
     }
   }
 
-  if (inSong) {
+  if (hasFrame('song')) {
     warnings.push({
       code: 'UNCLOSED_SONG_CONTAINER',
       message: 'Song container opened with $$ but no closing $$ was found.',
@@ -412,17 +568,52 @@ export function parseDraMark(input: string, options?: DraMarkOptions): DraMarkPa
     });
   }
 
+  closeAllToRoot();
+  runPass4RestoreProtectedBlocks(root);
+
   return {
     tree: root,
     warnings,
     metadata: {
-      frontmatterRaw: frontmatter?.value,
-      translationEnabledFromFrontmatter: translationFromFrontmatter,
+      frontmatterRaw: frontmatterPass.frontmatter?.value,
+      translationEnabledFromFrontmatter: frontmatterPass.translationEnabledFromFrontmatter,
     },
   };
 }
 
-// ─── Helpers: frontmatter ─────────────────────────────────────────────────────
+function runPass1MicromarkMarking(input: string): string {
+  // In unified + remarkParse flow this pass is executed by micromark extensions.
+  // parseDraMark standalone keeps it as identity to preserve the multipass contract.
+  return input;
+}
+
+function runPass0FrontmatterExtraction(lines: string[], root: DraMarkRoot): {
+  frontmatter: (FrontmatterBlock & { endLine: number }) | null;
+  translationEnabledFromFrontmatter: boolean;
+  startIndex: number;
+} {
+  const frontmatter = consumeFrontmatter(lines);
+  let translationEnabledFromFrontmatter = false;
+  if (frontmatter !== null) {
+    translationEnabledFromFrontmatter = /translation\s*:\s*[\s\S]*?enabled\s*:\s*true/iu.test(frontmatter.value);
+    root.children.push(frontmatter);
+  }
+
+  return {
+    frontmatter,
+    translationEnabledFromFrontmatter,
+    startIndex: frontmatter !== null ? frontmatter.endLine + 1 : 0,
+  };
+}
+
+function runPass2LexicalScan(lines: string[], startIndex: number): ScannedSegment[] {
+  return scanSegments(lines, startIndex);
+}
+
+function runPass4RestoreProtectedBlocks(_root: DraMarkRoot): void {
+  // Reserved for explicit placeholder de-protection when pass2 introduces
+  // protected sentinels for code sanctuary or other lexical shields.
+}
 
 function consumeFrontmatter(lines: string[]): (FrontmatterBlock & { endLine: number }) | null {
   if (lines.length < 3 || lines[0].trim() !== '---') {
@@ -439,8 +630,6 @@ function consumeFrontmatter(lines: string[]): (FrontmatterBlock & { endLine: num
   }
   return null;
 }
-
-// ─── Helpers: line classification ────────────────────────────────────────────
 
 function isRootDirectiveLine(line: string): boolean {
   return line.trimStart() === line;
@@ -470,36 +659,200 @@ function isLineComment(line: string): boolean {
   return /\s/u.test(line[idx - 1]);
 }
 
-// ─── Helpers: character declaration ──────────────────────────────────────────
-
-function parseCharacterDeclaration(line: string): Pick<CharacterBlock, 'name' | 'names' | 'mood'> | null {
-  if (!line.startsWith('@')) {
+function parseFenceOpen(line: string): FenceState | null {
+  const trimmed = line.trimStart();
+  const match = trimmed.match(/^(`{3,}|~{3,})/u);
+  if (match === null) {
     return null;
   }
-
-  const moodMatch = line.match(/(?:\[(.+?)\]|【(.+?)】)\s*$/u);
-  const mood = (moodMatch?.[1] ?? moodMatch?.[2])?.trim();
-  const withoutMood = moodMatch ? line.slice(0, moodMatch.index).trim() : line;
-
-  const names: string[] = [];
-  const regex = /@([^@\[【]+)/gu;
-  let match = regex.exec(withoutMood);
-  while (match !== null) {
-    const name = match[1].trim();
-    if (name.length > 0) {
-      names.push(name);
-    }
-    match = regex.exec(withoutMood);
-  }
-
-  if (names.length === 0) {
-    return null;
-  }
-
-  return { name: names[0], names, mood };
+  const marker = match[1][0] as '`' | '~';
+  return {
+    marker,
+    minLength: match[1].length,
+  };
 }
 
-// ─── Helpers: block comment scanning ─────────────────────────────────────────
+function isFenceCloseLine(line: string, state: FenceState): boolean {
+  const trimmed = line.trim();
+  if (trimmed.length < state.minLength) {
+    return false;
+  }
+  if (!trimmed.startsWith(state.marker.repeat(state.minLength))) {
+    return false;
+  }
+  for (let i = 0; i < trimmed.length; i += 1) {
+    if (trimmed[i] !== state.marker) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function parseCharacterLine(line: string): CharacterScan | null {
+  if (!line.startsWith('@') || line === '@@') {
+    return null;
+  }
+
+  const moodInfo = extractMood(line);
+  const head = moodInfo.text;
+  const names: string[] = [];
+  let cursor = 0;
+  let invalidName = false;
+
+  while (cursor < head.length) {
+    if (head[cursor] !== '@') {
+      break;
+    }
+    cursor += 1;
+    while (cursor < head.length && /\s/u.test(head[cursor])) {
+      cursor += 1;
+    }
+
+    const parsed = parseCharacterName(head, cursor);
+    if (parsed === null) {
+      invalidName = true;
+      break;
+    }
+
+    if (parsed.value.length === 0) {
+      invalidName = true;
+      break;
+    }
+
+    names.push(parsed.value);
+    if (parsed.invalid) {
+      invalidName = true;
+      break;
+    }
+
+    cursor = parsed.next;
+    while (cursor < head.length && /\s/u.test(head[cursor])) {
+      cursor += 1;
+    }
+
+    if (cursor < head.length && head[cursor] === '@') {
+      continue;
+    }
+    break;
+  }
+
+  const tail = head.slice(cursor).trim();
+  let remainder = '';
+  let attachmentsMarkdown: string | undefined;
+  let commentText: string | undefined;
+  if (tail.length > 0) {
+    const parsedAttachments = parseCharacterAttachments(tail);
+    if (parsedAttachments === null) {
+      remainder = tail;
+    } else {
+      attachmentsMarkdown = parsedAttachments.inlineMarkdown;
+      commentText = parsedAttachments.commentText;
+    }
+  }
+
+  return {
+    name: names[0] ?? '',
+    names,
+    mood: moodInfo.mood,
+    remainder,
+    attachmentsMarkdown,
+    commentText,
+    invalidName: invalidName || names.length === 0,
+  };
+}
+
+function parseCharacterName(text: string, start: number): { value: string; next: number; invalid: boolean } | null {
+  if (start >= text.length) {
+    return null;
+  }
+
+  const open = text[start];
+  if (open === '"' || open === '“') {
+    const close = open === '"' ? '"' : '”';
+    let cursor = start + 1;
+    let value = '';
+    while (cursor < text.length) {
+      const ch = text[cursor];
+      if (ch === '\\' && cursor + 1 < text.length) {
+        const next = text[cursor + 1];
+        value += next;
+        cursor += 2;
+        continue;
+      }
+      if (ch === close) {
+        return { value: value.trim(), next: cursor + 1, invalid: false };
+      }
+      value += ch;
+      cursor += 1;
+    }
+    return { value: '', next: text.length, invalid: true };
+  }
+
+  let cursor = start;
+  while (cursor < text.length) {
+    const ch = text[cursor];
+    if (ch === '@' || ch === '[' || ch === '【') {
+      break;
+    }
+    cursor += 1;
+  }
+
+  return {
+    value: text.slice(start, cursor).trim(),
+    next: cursor,
+    invalid: false,
+  };
+}
+
+function parseCharacterAttachments(text: string): { inlineMarkdown: string; commentText?: string } | null {
+  let cursor = 0;
+  const cues: string[] = [];
+  let commentText: string | undefined;
+
+  while (cursor < text.length) {
+    while (cursor < text.length && /\s/u.test(text[cursor])) {
+      cursor += 1;
+    }
+
+    if (cursor >= text.length) {
+      break;
+    }
+
+    if (text[cursor] === '<' && text[cursor + 1] === '<') {
+      const close = text.indexOf('>>', cursor + 2);
+      if (close < 0) {
+        return null;
+      }
+      cues.push(text.slice(cursor, close + 2));
+      cursor = close + 2;
+      continue;
+    }
+
+    if (text[cursor] === '%') {
+      commentText = text.slice(cursor + 1).trim();
+      cursor = text.length;
+      continue;
+    }
+
+    return null;
+  }
+
+  return {
+    inlineMarkdown: cues.join(' '),
+    commentText,
+  };
+}
+
+function extractMood(line: string): { text: string; mood?: string } {
+  const moodMatch = line.match(/(?:\[(.+?)\]|【(.+?)】)\s*$/u);
+  if (moodMatch === null) {
+    return { text: line };
+  }
+  return {
+    text: line.slice(0, moodMatch.index).trimEnd(),
+    mood: (moodMatch[1] ?? moodMatch[2])?.trim(),
+  };
+}
 
 function consumeBlockComment(lines: string[], start: number): { value: string; closed: boolean; nextIndex: number } {
   const payload: string[] = [];
@@ -512,26 +865,42 @@ function consumeBlockComment(lines: string[], start: number): { value: string; c
   return { value: payload.join('\n'), closed: false, nextIndex: lines.length };
 }
 
-// ─── Helpers: block tech cue scanning ────────────────────────────────────────
-
 function consumeBlockTechCue(lines: string[], start: number): { value: string; closed: boolean; nextIndex: number } {
-  const singleLine = lines[start].trim();
-  if (singleLine.includes('>>>') && singleLine !== '<<<') {
-    const value = singleLine.replace(/^<<<\s*/u, '').replace(/\s*>>>$/u, '');
-    return { value, closed: true, nextIndex: start + 1 };
+  const first = lines[start].trim();
+  if (first !== '<<<') {
+    const singleLine = first.replace(/^<<<\s*/u, '');
+    if (singleLine.endsWith('>>>')) {
+      return {
+        value: singleLine.slice(0, -3).trim(),
+        closed: true,
+        nextIndex: start + 1,
+      };
+    }
+    if (singleLine.endsWith('<<<')) {
+      return {
+        value: singleLine.slice(0, -3).trim(),
+        closed: true,
+        nextIndex: start + 1,
+      };
+    }
   }
 
   const payload: string[] = [];
+  const firstPayload = first.replace(/^<<<\s*/u, '').trim();
+  if (firstPayload.length > 0) {
+    payload.push(firstPayload);
+  }
+
   for (let i = start + 1; i < lines.length; i += 1) {
-    if (lines[i].trim() === '>>>') {
+    const trimmed = lines[i].trim();
+    if (trimmed === '>>>' || trimmed === '<<<') {
       return { value: payload.join('\n'), closed: true, nextIndex: i + 1 };
     }
     payload.push(lines[i]);
   }
+
   return { value: payload.join('\n'), closed: false, nextIndex: lines.length };
 }
-
-// ─── Helpers: CommonMark block parsing (Phase 2) ─────────────────────────────
 
 function parseMarkdownBlocks(markdown: string, options?: { inSongContext?: boolean }): Content[] {
   const tree = fromMarkdown(markdown);
@@ -543,8 +912,6 @@ function parseMarkdownBlocks(markdown: string, options?: { inSongContext?: boole
   }
   return blocks;
 }
-
-// ─── Helpers: AST node factories ─────────────────────────────────────────────
 
 function asHeading(line: string): Heading {
   const headingMatch = line.match(/^(#{1,6})\s+(.*)$/u);

@@ -90,7 +90,12 @@ export interface DraMarkWarning {
     | 'UNCLOSED_BLOCK_COMMENT'
     | 'UNCLOSED_BLOCK_TECH_CUE'
     | 'UNCLOSED_SONG_CONTAINER'
-    | 'TRANSLATION_OUTSIDE_CHARACTER';
+    | 'TRANSLATION_OUTSIDE_CHARACTER'
+    | 'CHARACTER_DECLARATION_NOT_STANDALONE'
+    | 'INVALID_CHARACTER_NAME'
+    | 'DEPRECATED_INLINE_CHARACTER_DECLARATION'
+    | 'EXTERNAL_FRONTMATTER_FETCH_FAILED'
+    | 'EXTERNAL_FRONTMATTER_PARSE_FAILED';
   message: string;
   line: number;
   column: number;
@@ -109,6 +114,7 @@ export interface DraMarkOptions {
   translationEnabled?: boolean;
   includeComments?: boolean;
   strictMode?: boolean;
+  characterDeclarationMode?: 'strict' | 'compat';
 }
 
 declare module 'mdast' {

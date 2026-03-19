@@ -1,10 +1,10 @@
-# DraMark Editor/Renderer v1 Plan (Web + VS Code, Legacy-First)
+# DraMark Editor/Renderer v1 Plan (Web + VS Code, Micromark-Integrated)
 
 ## Summary
 Build a shared `core` package on top of current `parseDraMark` output, then ship two clients: a Web editor and a VS Code extension.
-v1 is text-first editing with full-document debounced parse, Actor Script rendering as default, and `legacy` parser runtime as the only production semantic engine.
+v1 is text-first editing with full-document debounced parse, Actor Script rendering as default, and micromark-integrated multipass runtime as production semantic engine.
 Frontmatter is treated as a document config layer (not DraMark core grammar): parser extracts raw payload + minimal flags, while app/extension normalize and consume config.
-Language semantics should follow the Block Stack model defined in `spec/spec.md`; clients must not couple to legacy parser internals (state flags or transient assembly details).
+Language semantics should follow the Block Stack model defined in `spec/spec.md`; clients must not couple to parser internals (state flags or transient assembly details).
 
 ## Key Changes
 - Shared architecture (single source of truth):
@@ -44,10 +44,10 @@ Language semantics should follow the Block Stack model defined in `spec/spec.md`
   - Diagnostics from warnings (`UNCLOSED_*`, `TRANSLATION_OUTSIDE_CHARACTER`).
   - Preview webview rendering Actor Script using same core renderer.
   - Extension diagnostics merges parser warnings + config diagnostics from `normalizeFrontmatter`.
-- Runtime policy:
-  - `legacy` parser only in v1 production path.
-  - `micromark` remains non-user-facing experimental track; no runtime toggle in v1 UI.
-  - Keep renderer contracts model-based (`character-block` / `song-container` / `translation-pair`) rather than implementation-based (state-machine assumptions).
+  - Runtime policy:
+  - micromark-integrated multipass parser in v1 production path.
+  - no runtime toggle in v1 UI.
+  - Keep renderer contracts model-based (`character-block` / `song-container` / `translation-pair`) rather than implementation-based assumptions.
 
 ## Test Plan
 - Core unit tests:
@@ -64,7 +64,7 @@ Language semantics should follow the Block Stack model defined in `spec/spec.md`
 - Integration tests:
   - Web: edit text → debounced parse → preview updates; warning jump targets correct lines.
   - Web: `song-container` 内 `character-block` 正常渲染，且不会出现 `[character-block]` 占位符退化。
-  - Web: `<<...>>` 在 legacy 解析链路下稳定渲染为 cue（包含底层 html-split 场景）。
+  - Web: `<<...>>` 在 micromark-integrated multipass 解析链路下稳定渲染为 cue（包含底层 html-split 场景）。
   - Web: `$$` 内 `$...$` 不生成 `inline-song`，回退普通文本。
   - VS Code: document change emits diagnostics and updates preview model.
   - Frontmatter present/absent does not change body parse semantics; only config view/behavior updates.
@@ -81,6 +81,6 @@ Language semantics should follow the Block Stack model defined in `spec/spec.md`
 - v1 is text-first, not AST-authoring; no structural rewrite/save from AST.
 - Full reparse + debounce is acceptable for v1 performance.
 - Actor Script is the only user-facing render mode in v1.
-- `legacy` runtime is required for complete DraMark semantics; micromark migration is deferred to later milestones.
+- micromark-integrated multipass runtime is required for complete DraMark semantics.
 - Parser keeps a minimal metadata contract (`frontmatterRaw`, `translationEnabledFromFrontmatter`) and does not enforce strict frontmatter schema.
 - Existing parser package remains body-semantic focused; frontmatter business validation lives in app/extension layer.

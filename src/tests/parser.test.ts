@@ -280,4 +280,32 @@ describe('parseDraMark', () => {
     expect(inlineSong).toBeDefined();
     expect(inlineSong?.value).toBe('hello');
   });
+
+  it('supports @@ as explicit character exit', () => {
+    const input = ['@A', '第一句', '@@', '舞台说明'].join('\n');
+
+    const result = parseDraMark(input);
+    const first = result.tree.children[0] as { type: string; children: Array<{ type: string }> };
+    const second = result.tree.children[1] as { type: string; children: Array<{ value?: string }> };
+
+    expect(first.type).toBe('character-block');
+    expect(first.children[0].type).toBe('paragraph');
+    expect(second.type).toBe('paragraph');
+    expect(second.children[0].value).toContain('舞台说明');
+  });
+
+  it('supports single-line = as explicit translation exit', () => {
+    const input = ['@A', '= Source', '目标文本', '=', '退出后对白'].join('\n');
+
+    const result = parseDraMark(input, { translationEnabled: true });
+    const character = result.tree.children[0] as {
+      type: string;
+      children: Array<{ type: string; sourceText?: string; target?: Array<{ type: string }>; children?: Array<{ value?: string }> }>;
+    };
+
+    expect(character.type).toBe('character-block');
+    expect(character.children[0].type).toBe('translation-pair');
+    expect(character.children[1].type).toBe('paragraph');
+    expect(character.children[1].children?.[0]?.value).toContain('退出后对白');
+  });
 });

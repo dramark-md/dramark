@@ -580,8 +580,6 @@ TranslationBlock 的 `target` 字段为 `Block[]` 类型，支持多段落、列
 
 ### 裁决九：代码保护区优先（Code Sanctuary Priority）
 
-**编号**：Ruling #9
-
 CommonMark 的围栏代码块（Fenced Code Blocks）和行内代码（Inline Code）具有**最高词法优先级**。
 
 1. 在保护区内，所有 DraMark 特殊语法（包括但不限于 `<<...>>` Tech Cue、`@` 角色声明、`$$` 唱段标记、`=` 译配标记）均**失效**，视为普通文本字面量。
@@ -592,18 +590,21 @@ CommonMark 的围栏代码块（Fenced Code Blocks）和行内代码（Inline Co
 
 **示例**：
 
-```markdown
+~~~markdown
 % 以下必须原样保留，不产生任何 AST 语义节点
-```
+```cpp
 
 template <typename T>
 class RolePair {
 vector<vector<int>> matrix; % 不触发 Tech Cue
 };
 
+void setup() {
+  std::cout << "Hello, World! >>" << std::endl; % 不触发 Tech Cue
+}
 ```
 
-```
+~~~
 
 ### 裁决十：Tech Cue 单层块级原则（新增）
 

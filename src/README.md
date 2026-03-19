@@ -5,14 +5,56 @@
 本文件描述的是当前仓库实现状态，而不是语言规范全文。
 
 - 规范目标模型：Block Stack（见 `spec/spec.md`）
-- 当前实现模型：`legacy` 路径采用“frontmatter 预处理 + 分段扫描 + 汇编组装”的过渡实现
+- 当前实现模型：micromark-only 集成 + DraMark multipass 管线
 - 结论：当前实现已经覆盖大量语法能力，但尚未完整落地规范中的全部闭合与诊断规则
 
-## 2. 当前状态（2026-03-19）
+## 2. 当前状态（2026-03-20）
 
-- `legacy`：生产可用路径，负责 DraMark 块级语义组装
-- `micromark`：实验性路径，仅做行内 tokenization（`<<...>>`、`$...$`、`{...}`）
+- 插件已切换为 micromark-only 集成路径（不再提供 `legacy` 模式开关）
+- DraMark 采用**3-4 pass multipass** 架构（见下方“解析流水线”）
 - `pnpm build`、`pnpm test:run` 已通过（6 files / 77 tests）
+
+## 2.1 解析流水线（3-4 pass）
+
+### 为什么必须 multipass
+
+单遍解析无法同时满足以下规范约束：
+
+1. 代码保护区优先（Code Sanctuary Priority）
+2. 行内 Tech Cue 词法抢占（避免 `<<...>>` 被 CommonMark HTML/文本路径吞掉）
+3. Block Stack 的确定性闭合顺序
+4. CommonMark 内容块保真（list/blockquote/code 等结构不丢失）
+
+多遍解析的目标不是“多跑几次”，而是把上述冲突分层处理，防止互相吞噬。
+
+### 每一遍做什么
+
+1. Pass 1（micromark 标记）
+  - 输入：原始文本
+  - 输出：带有行内词法边界信息的 parse 上下文
+  - 作用：优先标记 `<<...>>`、`$...$`、`{...}` 这类容易被 CommonMark 抢占的符号
+
+2. Pass 2（DraMark 标记/保护/结构解析）
+  - 输入：原始文本 + pass1 词法边界约束
+  - 输出：DraMark 结构段（song/character/translation/comment/tech-cue 等）与 Block Stack 操作结果
+  - 作用：执行 root-level 触发规则、闭合顺序、角色独占行校验、译配上下文规则
+
+3. Pass 3（micromark/CommonMark 解析）
+  - 输入：结构段内 markdown 内容
+  - 输出：标准 mdast 内容块
+  - 作用：保证 CommonMark 结构保真，而不是把内容都降级成 text/paragraph
+
+4. Pass 4（DraMark 还原保护块，可选）
+  - 输入：带占位符或受保护片段的中间树
+  - 输出：还原后的最终 AST
+  - 作用：恢复保护区字面量并保证语义节点不被保护机制污染
+
+### 失败模式（为什么不能退化为单遍）
+
+1. `<<...>>` 被 CommonMark 路径吞掉，Tech Cue 漏识别
+2. 代码块内符号误触发 DraMark 指令
+3. `Song/Character/Translation` 闭合顺序错误导致 AST 漂移
+4. list/blockquote 等内容块结构损坏
 
 ## 3. 目录结构
 
@@ -21,7 +63,7 @@
 - `types.ts`
   - 自定义 AST 节点与 warning 类型
 - `parser.ts`
-  - legacy 解析主流程（scan + assemble）
+  - DraMark multipass 结构解析主流程（scan + block-stack assemble）
 - `inline-markers.ts`
   - 行内 marker 变换（含 `inline-spoken`）
 - `m2-extensions.ts`
@@ -51,12 +93,12 @@
 ### 4.2 remark 插件
 
 - 默认导出：`remarkDraMark`
-- `parserMode`：`legacy | micromark`（默认 `legacy`）
 
-行为差异：
+行为：
 
-- `legacy`：会用 `parseDraMark` 结果覆盖 `tree.children`
-- `micromark`：不覆盖 `tree.children`，仅注入行内扩展；同时把 legacy 解析出的 warnings/metadata 挂到 `file.data.dramark`
+- 固定走 micromark 集成路径（不再切换 legacy）
+- 保持 mdast 主树不被覆盖
+- 通过 `file.data.dramark` 输出 DraMark warnings/metadata（以及 multipass 集成信息）
 
 ### 4.3 strictMode
 
@@ -74,34 +116,38 @@
 - `$$` 与 `$$ 标题`
 - `!!`（仅在 song 内有效）
 - `= 原文` 译配源行（角色上下文 + translation enabled）
+- `=` 显式退出译配
 - `%` 行注释、`%%...%%` 块注释
-- `<<<...>>>`（单行）与 `<<<`...`>>>`（多行主闭合）
+- `<<<...>>>`（单行）与 `<<<`...`>>>` / `<<<`...`<<<`（多行闭合）
 - 行内 `{...}` / `｛...｝`、`$...$`、`<<...>>`
 - `inline-spoken`：song 上下文下 `$...$` 转为 `inline-spoken`
 - root-level 指令门禁（缩进行不触发 DraMark 指令）
+- `@@` 显式退出角色模式
+- 角色声明独占行校验（`strict`）与兼容模式（`compat`）
+- 引号角色名解析（`@"..."` / `@“...”`）
 
 ### 5.2 部分支持
 
-- Tech Cue 多行闭合：目前只支持 `>>>` 主闭合；规范中的 `<<<` 对称回退闭合尚未完整实现
-- `micromark` 模式：仅行内 tokenization，块级语义不由 micromark 构造自定义节点
+- block-level micromark constructs 仍在迁移中（当前块级语义由 DraMark 结构 pass 提供）
 
 ### 5.3 尚未支持（规范条目）
 
-- `@@` 显式退出角色模式
-- 单行 `=` 显式退出译配
-- 角色声明独占行校验（含兼容模式 warning）
-- 引号角色名完整解析（例如 `@"冉 阿让"`）
 - 外部 frontmatter 拉取 warning（如 `EXTERNAL_FRONTMATTER_*`）
-- 扩展 warning 码（如 `INVALID_CHARACTER_NAME` 等）
+- 完整 block-level micromark constructs（仍处于迁移阶段）
 
 ## 6. Warning 与诊断
 
-当前 parser warning code（仅 4 个）：
+当前 parser warning code：
 
 - `UNCLOSED_BLOCK_COMMENT`
 - `UNCLOSED_BLOCK_TECH_CUE`
 - `UNCLOSED_SONG_CONTAINER`
 - `TRANSLATION_OUTSIDE_CHARACTER`
+- `CHARACTER_DECLARATION_NOT_STANDALONE`
+- `INVALID_CHARACTER_NAME`
+- `DEPRECATED_INLINE_CHARACTER_DECLARATION`
+- `EXTERNAL_FRONTMATTER_FETCH_FAILED`
+- `EXTERNAL_FRONTMATTER_PARSE_FAILED`
 
 `core` 层可附加配置诊断（`CONFIG_*`），用于 frontmatter 归一化反馈。
 
@@ -123,7 +169,7 @@
 
 ## 8. 下一步（与 Block 模型对齐）
 
-1. 在 `legacy` 路径中引入显式 Block Stack 结构与统一 close/open 规则
-2. 补齐规范差距：`@@`、`=` 显式退出、角色独占行校验、引号角色名解析、warning code 扩展
-3. 收敛 Tech Cue 多行闭合优先级（`>>>` 主闭合 + `<<<` 回退闭合）
+1. 将当前解析流程显式拆分为 pass 管线（pass1/2/3/4）并暴露可观测中间产物
+2. 补齐 Tech Cue 闭合优先级边界测试（尤其是 `<<<\n<<<\n>>>`）
+3. 在需要占位保护时实现显式 pass4 restore（保护块还原）
 4. 将 block-level 能力逐步迁移到 micromark flow constructs

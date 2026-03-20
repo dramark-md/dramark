@@ -17,15 +17,11 @@ casting:
     - name: 小柴
       aliases: [柴]
       mic: B3
-    - name: 小夜
-      aliases: [夜, 夜游神]
-      mic: B4
 tech:
   mics:
     - id: B1
     - id: B2
     - id: B3
-    - id: B4
   sfx:
     color: "#66ccff"
     entries:

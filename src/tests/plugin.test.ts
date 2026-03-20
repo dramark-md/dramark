@@ -50,6 +50,21 @@ describe('remarkDraMark plugin', () => {
     expect(inlineAction?.value).toBe('动作');
   });
 
+  it('keeps tech-cue payload opaque while preserving surrounding CommonMark nodes', async () => {
+    const processor = unified().use(remarkParse).use(remarkDraMark);
+    const file = new VFile({ value: '前缀 **加粗** <<角色=HM2 from=HM1->HM2>> 后缀' });
+    const tree = processor.parse(file) as { children: Array<{ type: string; value?: string; children?: unknown[] }> };
+
+    await processor.run(tree, file);
+
+    const allNodes = flatten(tree);
+    const strongNode = allNodes.find((node) => node.type === 'strong');
+    const techCue = allNodes.find((node) => node.type === 'inline-tech-cue');
+
+    expect(strongNode).toBeDefined();
+    expect(techCue?.value).toBe('角色=HM2 from=HM1->HM2');
+  });
+
   it('does not create inline-tech-cue when <<...>> spans lines', async () => {
     const processor = unified().use(remarkParse).use(remarkDraMark);
     const file = new VFile({ value: '台词 <<LX01\nGO>> 不应闭合' });

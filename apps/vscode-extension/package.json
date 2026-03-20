@@ -12,13 +12,23 @@
     "Programming Languages"
   ],
   "main": "./dist/extension.js",
-  "extensionPack": ["redhat.vscode-yaml"],
+  "extensionPack": [
+    "redhat.vscode-yaml"
+  ],
   "contributes": {
     "languages": [
       {
         "id": "dramark",
-        "aliases": ["DraMark", "dramark"],
-        "extensions": [".dramark", ".drm", ".dra.md", ".dra.markdown"],
+        "aliases": [
+          "DraMark",
+          "dramark"
+        ],
+        "extensions": [
+          ".dramark",
+          ".drm",
+          ".dra.md",
+          ".dra.markdown"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
@@ -60,5 +70,8 @@
   "devDependencies": {
     "@types/vscode": "^1.85.0",
     "esbuild": "^0.24.0"
+  },
+  "dependencies": {
+    "@vscode/vsce": "^3.7.1"
   }
 }

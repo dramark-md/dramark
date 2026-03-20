@@ -75,7 +75,7 @@ Language semantics should follow the Block Stack model defined in `spec/spec.md`
   - `@group` alias resolution behaves deterministically from normalized `casting.groups`.
   - Large document smoke: repeated edits do not break state consistency.
 - Compatibility tests:
-  - Use `example/ham.md` as baseline fixture to verify stable outline + actor rendering structure.
+  - Use a repository-owned synthetic fixture as baseline to verify stable outline + actor rendering structure.
   - Regression test ensuring `parseDraMark(strictMode=true)` still does not throw in core path.
   - Regression test ensuring `frontmatterRaw` passthrough is available to app/extension normalization pipeline.
 

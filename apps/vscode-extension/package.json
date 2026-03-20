@@ -3,7 +3,7 @@
   "displayName": "DraMark",
   "description": "DraMark — Drama Markdown language support",
   "version": "0.1.0",
-  "publisher": "dramark",
+  "publisher": "LeoLi",
   "engines": {
     "vscode": "^1.85.0"
   },

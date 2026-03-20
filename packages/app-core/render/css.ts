@@ -333,6 +333,11 @@ ${generateTechCueCSS()}
   margin: 0.5rem 0;
 }
 
+.dm-translation[data-layout="stack"] {
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
 .dm-translation-source {
   flex: 1;
   font-style: italic;

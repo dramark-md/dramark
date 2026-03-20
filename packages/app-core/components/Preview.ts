@@ -25,7 +25,7 @@ export function createPreviewHTML(props: PreviewProps): string {
           ${layout.rows.map((row) => renderRowLeft(row.left)).join('')}
         </div>
         <div class="dramark-center">
-          ${layout.rows.map((row) => renderRowCenter(row.center)).join('')}
+          ${layout.rows.map((row) => renderRowCenter(row.center, config)).join('')}
         </div>
         <div class="dramark-right">
           ${layout.rows.map((row) => renderRowRight(row.right)).join('')}
@@ -33,7 +33,7 @@ export function createPreviewHTML(props: PreviewProps): string {
       </div>
       <div class="dramark-layout dm-layout-mobile">
         <div class="dramark-center">
-          ${layout.rows.map((row) => renderRowForMobile(row)).join('')}
+          ${layout.rows.map((row) => renderRowForMobile(row, config)).join('')}
         </div>
       </div>
     </div>
@@ -47,11 +47,11 @@ function renderRowLeft(block: TechCueBlock | null): string {
   return `<div class="dm-row-slot">${renderTechCueBlock(block)}</div>`;
 }
 
-function renderRowCenter(block: RenderBlock | null): string {
+function renderRowCenter(block: RenderBlock | null, config: PreviewConfig): string {
   if (block === null) {
     return '<div class="dm-row-placeholder" aria-hidden="true"></div>';
   }
-  return `<div class="dm-row-slot">${renderBlock(block)}</div>`;
+  return `<div class="dm-row-slot">${renderBlock(block, config)}</div>`;
 }
 
 function renderRowRight(block: CommentRenderBlock | null): string {
@@ -61,9 +61,12 @@ function renderRowRight(block: CommentRenderBlock | null): string {
   return `<div class="dm-row-slot">${renderCommentBlock(block)}</div>`;
 }
 
-function renderRowForMobile(row: { left: TechCueBlock | null; center: RenderBlock | null; right: CommentRenderBlock | null }): string {
+function renderRowForMobile(
+  row: { left: TechCueBlock | null; center: RenderBlock | null; right: CommentRenderBlock | null },
+  config: PreviewConfig,
+): string {
   if (row.center !== null) {
-    return renderBlock(row.center);
+    return renderBlock(row.center, config);
   }
   if (row.left !== null) {
     return renderTechCueBlock(row.left);
@@ -74,14 +77,14 @@ function renderRowForMobile(row: { left: TechCueBlock | null; center: RenderBloc
   return '';
 }
 
-function renderBlock(block: RenderBlock): string {
+function renderBlock(block: RenderBlock, config: PreviewConfig): string {
   switch (block.type) {
     case 'character':
-      return renderCharacterBlock(block);
+      return renderCharacterBlock(block, config);
     case 'global-action':
-      return renderGlobalActionBlock(block);
+      return renderGlobalActionBlock(block, config);
     case 'song-container':
-      return renderSongContainerBlock(block);
+      return renderSongContainerBlock(block, config);
     case 'tech-cue':
       return renderTechCueBlock(block);
     case 'comment':
@@ -95,11 +98,11 @@ function renderBlock(block: RenderBlock): string {
   }
 }
 
-function renderCharacterBlock(block: CharacterRenderBlock): string {
+function renderCharacterBlock(block: CharacterRenderBlock, config: PreviewConfig): string {
   const namesHtml = block.names.map(name => `<span class="dm-character-name">${escapeHtml(name)}</span>`).join('<span class="dm-character-sep"> </span>');
   const contextHtml = block.context ? `<div class="dm-character-context">[${escapeHtml(block.context)}]</div>` : '';
   
-  const contentHtml = block.content.map(content => renderDialogueContent(content)).join('');
+  const contentHtml = block.content.map((content) => renderDialogueContent(content, config)).join('');
 
   const techCuesHtml = block.techCues.length > 0
     ? `<div class="dm-character-tech-cues">${block.techCues.map(tc => renderInlineTechCue(tc)).join('')}</div>`
@@ -119,15 +122,15 @@ function renderCharacterBlock(block: CharacterRenderBlock): string {
   `;
 }
 
-function renderGlobalActionBlock(block: GlobalActionBlock): string {
-  const contentHtml = block.content.map(content => renderDialogueContent(content)).join('');
+function renderGlobalActionBlock(block: GlobalActionBlock, config: PreviewConfig): string {
+  const contentHtml = block.content.map((content) => renderDialogueContent(content, config)).join('');
 
   return `<div class="dm-global-action" data-mode="${block.performanceMode}">${contentHtml}</div>`;
 }
 
-function renderSongContainerBlock(block: SongContainerBlock): string {
+function renderSongContainerBlock(block: SongContainerBlock, config: PreviewConfig): string {
   const titleHtml = block.title ? `<div class="dm-song-title">${escapeHtml(block.title)}</div>` : '';
-  const childrenHtml = block.children.map(child => renderBlock(child)).join('');
+  const childrenHtml = block.children.map((child) => renderBlock(child, config)).join('');
 
   return `
     <div class="dm-song-container" data-mode="${block.performanceMode}">
@@ -157,7 +160,7 @@ function renderCommentBlock(block: CommentRenderBlock): string {
   return `<div class="dm-comment ${variantClass}" data-mode="${block.performanceMode}">${escapeHtml(block.content)}</div>`;
 }
 
-function renderDialogueContent(content: { type: string; children: DialogueChild[] }): string {
+function renderDialogueContent(content: { type: string; children: DialogueChild[]; sourceText?: string; targetText?: string }, config: PreviewConfig): string {
   if (content.type === 'paragraph') {
     return `<p class="dm-paragraph">${renderInlineChildren(content.children)}</p>`;
   }
@@ -166,6 +169,16 @@ function renderDialogueContent(content: { type: string; children: DialogueChild[
   }
   if (content.type === 'blockquote') {
     return `<blockquote class="dm-blockquote"><p class="dm-paragraph">${renderInlineChildren(content.children)}</p></blockquote>`;
+  }
+  if (content.type === 'translation') {
+    const showSource = config.translationMode !== 'target-only';
+    const showTarget = config.translationMode !== 'source-only';
+    const sourceHtml = showSource ? `<div class="dm-translation-source">${escapeHtml(content.sourceText || '')}</div>` : '';
+    const targetHtml = showTarget ? `<div class="dm-translation-target">${escapeHtml(content.targetText || '')}</div>` : '';
+    if (!showSource && !showTarget) {
+      return '';
+    }
+    return `<div class="dm-translation" data-layout="${config.translationLayout}">${sourceHtml}${targetHtml}</div>`;
   }
   return '';
 }

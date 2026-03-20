@@ -214,6 +214,16 @@ function convertContentNode(node: unknown, context: RenderContext): ContentNodeR
           children: collectInlineChildren(node, context),
         } as DialogueContent,
       };
+    case 'translation-pair':
+      return {
+        isTechCue: false,
+        data: {
+          type: 'translation',
+          children: [],
+          sourceText: String(typedNode.sourceText || ''),
+          targetText: extractTextContent(typedNode.target),
+        } as DialogueContent,
+      };
     case 'inline-action':
       return {
         isTechCue: false,

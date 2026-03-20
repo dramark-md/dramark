@@ -302,9 +302,11 @@ function collectFrontmatterCompletions(
   document: vscode.TextDocument,
   position: vscode.Position,
 ): vscode.CompletionItem[] {
+  const linePrefix = document.lineAt(position).text.substring(0, position.character);
   const path = inferYamlPath(document, position.line);
   const currentScope = path[path.length - 1];
   const specs = currentScope ? (FRONTMATTER_CHILD_KEYS[currentScope] ?? FRONTMATTER_ROOT_KEYS) : FRONTMATTER_ROOT_KEYS;
+  const listKeyContext = resolveListKeyContext(linePrefix);
 
   const wordRange = document.getWordRangeAtPosition(position, /[A-Za-z_][A-Za-z0-9_-]*/u);
   const range = wordRange ?? new vscode.Range(position, position);
@@ -312,10 +314,33 @@ function collectFrontmatterCompletions(
   return specs.map((spec) => {
     const item = new vscode.CompletionItem(spec.label, vscode.CompletionItemKind.Field);
     item.detail = spec.detail;
-    item.insertText = spec.insertText;
+    item.insertText = applyListPrefixSpacing(spec.insertText, listKeyContext);
+    item.filterText = spec.label;
     item.range = range;
     return item;
   });
+}
+
+function resolveListKeyContext(linePrefix: string): { shouldPrefixSpace: boolean } | null {
+  const match = linePrefix.match(/^\s*-(\s*)([A-Za-z_][A-Za-z0-9_-]*)?$/u);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    shouldPrefixSpace: match[1].length === 0,
+  };
+}
+
+function applyListPrefixSpacing(
+  insertText: vscode.SnippetString,
+  context: { shouldPrefixSpace: boolean } | null,
+): vscode.SnippetString {
+  if (!context || !context.shouldPrefixSpace) {
+    return insertText;
+  }
+
+  return new vscode.SnippetString(` ${insertText.value}`);
 }
 
 function inferYamlPath(document: vscode.TextDocument, line: number): string[] {

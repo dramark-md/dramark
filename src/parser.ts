@@ -472,7 +472,12 @@ export function parseDraMark(input: string, options?: DraMarkOptions): DraMarkPa
             column: 1,
           });
         }
-        addNode({ type: 'block-tech-cue', value: seg.value } satisfies BlockTechCue);
+        const blockTechCueChildren = parseBlockTechCuePayload(seg.value, opts);
+        addNode({
+          type: 'block-tech-cue',
+          value: seg.value,
+          children: blockTechCueChildren,
+        } satisfies BlockTechCue);
         break;
       }
 
@@ -1048,6 +1053,23 @@ function parseMarkdownBlocks(markdown: string, options?: { inSongContext?: boole
     transformSongScopedInlineNodes(block, { inSongContext: options?.inSongContext ?? false });
   }
   return blocks;
+}
+
+function parseBlockTechCuePayload(payload: string, options: Required<DraMarkOptions>): DraMarkRootContent[] {
+  if (payload.trim().length === 0) {
+    return [];
+  }
+
+  const nested = parseDraMark(payload, {
+    translationEnabled: options.translationEnabled,
+    includeComments: options.includeComments,
+    strictMode: false,
+    characterDeclarationMode: options.characterDeclarationMode,
+    multipassDebug: false,
+    pass4Restore: options.pass4Restore,
+  });
+
+  return nested.tree.children;
 }
 
 function asHeading(line: string): Heading {

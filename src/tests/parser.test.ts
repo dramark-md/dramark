@@ -174,6 +174,30 @@ describe('parseDraMark', () => {
     expect(techCue?.value).toBe('LX01 GO');
   });
 
+  it('keeps tech-cue payload opaque while parsing surrounding markdown and dramark normally', () => {
+    const input = ['@A', '前缀 **加粗** <<角色=HM2 from=HM1->HM2>> 后缀', '= Source', '目标'].join('\n');
+    const result = parseDraMark(input, { translationEnabled: true });
+
+    const character = result.tree.children[0] as {
+      type: string;
+      children: Array<
+        | { type: 'paragraph'; children: Array<{ type: string; value?: string }> }
+        | { type: 'translation-pair'; sourceText: string; target: Array<{ type: string }> }
+      >;
+    };
+    const paragraph = character.children[0] as { type: 'paragraph'; children: Array<{ type: string; value?: string }> };
+    const pair = character.children[1] as { type: 'translation-pair'; sourceText: string; target: Array<{ type: string }> };
+    const techCue = paragraph.children.find((node) => node.type === 'inline-tech-cue');
+
+    expect(result.warnings).toHaveLength(0);
+    expect(character.type).toBe('character-block');
+    expect(paragraph.children.some((node) => node.type === 'strong')).toBe(true);
+    expect(techCue?.value).toBe('角色=HM2 from=HM1->HM2');
+    expect(pair.type).toBe('translation-pair');
+    expect(pair.sourceText).toBe('Source');
+    expect(pair.target.map((block) => block.type)).toEqual(['paragraph']);
+  });
+
   it('parses >>> quote line as CommonMark blockquote outside block-tech-cue', () => {
     const result = parseDraMark('>>> 引用');
     const first = result.tree.children[0] as { type: string };
@@ -233,6 +257,52 @@ describe('parseDraMark', () => {
     expect(result.warnings).toHaveLength(0);
     expect(cue.type).toBe('block-tech-cue');
     expect(cue.value).toBe('<<LX01>>');
+  });
+
+  it('parses multi-line block-tech-cue payload with normal syntax while keeping raw payload', () => {
+    const input = [
+      '<<<',
+      '@A',
+      '= Source',
+      '目标',
+      '=',
+      '% 注释',
+      '执行 <<LX01 GO>>',
+      '>>>',
+    ].join('\n');
+
+    const result = parseDraMark(input, { translationEnabled: true, includeComments: true });
+    const cue = result.tree.children[0] as {
+      type: string;
+      value: string;
+      children?: Array<{
+        type: string;
+        name?: string;
+        sourceText?: string;
+        children?: Array<{ type: string; value?: string; sourceText?: string; children?: Array<{ type: string; value?: string }> }>;
+      }>;
+    };
+
+    expect(result.warnings).toHaveLength(0);
+    expect(cue.type).toBe('block-tech-cue');
+    expect(cue.value).toContain('<<LX01 GO>>');
+    expect(cue.children?.[0]?.type).toBe('character-block');
+
+    const character = cue.children?.[0] as {
+      type: string;
+      children: Array<{ type: string; sourceText?: string; value?: string; children?: Array<{ type: string; value?: string }> }>;
+    };
+    const translationPair = character.children[0] as { type: string; sourceText?: string };
+    const commentLine = character.children[1] as { type: string; value?: string };
+    const paragraph = character.children[2] as { type: string; children?: Array<{ type: string; value?: string }> };
+    const inlineCue = paragraph.children?.find((node) => node.type === 'inline-tech-cue');
+
+    expect(translationPair.type).toBe('translation-pair');
+    expect(translationPair.sourceText).toBe('Source');
+    expect(commentLine.type).toBe('comment-line');
+    expect(commentLine.value).toBe('注释');
+    expect(paragraph.type).toBe('paragraph');
+    expect(inlineCue?.value).toBe('LX01 GO');
   });
 
   it('parses inline-spoken inside song container instead of inline-song', () => {

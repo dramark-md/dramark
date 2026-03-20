@@ -86,6 +86,7 @@
 说明：
 
 - 解析器只透传 frontmatter 原文并做最小开关判定
+- 解析器识别 Tech Cue 外层边界并保留 payload 原文；payload 内基础 DraMark/CommonMark 语法可正常解析，但不在语法层解释换麦关键词等扩展语义
 - frontmatter schema 校验与外部配置拉取不在 parser 语法层完成
 - `multipassDebug` 用于调试 pass 产物，不影响默认解析语义
 - `pass4Restore` 默认为开启；可在调试或对比场景显式关闭

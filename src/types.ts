@@ -57,6 +57,7 @@ export interface InlineTechCue {
 export interface BlockTechCue {
   type: 'block-tech-cue';
   value: string;
+  children?: DraMarkRootContent[];
 }
 
 export interface CommentLine {

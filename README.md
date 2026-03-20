@@ -23,6 +23,8 @@
 
 ## 快速示例
 
+更完整的示例请查看 [《在公园的长椅上睡大觉》第二幕剧本](examples/where-the-bench-remembers.dramark)。感谢小橘猫_zzz老师提供的授权。
+
 ```dramark
 ---
 meta:

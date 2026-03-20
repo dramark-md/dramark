@@ -331,4 +331,55 @@ describe('parseDraMark', () => {
     expect(result.metadata.multipassDebug?.pass4.executed).toBe(false);
     expect(result.metadata.multipassDebug?.pass4.restoredNodeCount).toBe(0);
   });
+
+  it('treats fenced code as sanctuary and restores protected literals in pass4', () => {
+    const input = ['@A', '```', '<<LX01 GO>>', '@B', '= nested source', '% nested comment', '```', '围栏后对白'].join('\n');
+    const result = parseDraMark(input, { multipassDebug: true });
+
+    expect(result.warnings).toHaveLength(0);
+
+    const character = result.tree.children[0] as {
+      type: string;
+      name: string;
+      children: Array<{ type: string; value?: string; children?: Array<{ value?: string }> }>;
+    };
+
+    expect(character.type).toBe('character-block');
+    expect(character.name).toBe('A');
+    expect(character.children.some((node) => node.type === 'translation-pair')).toBe(false);
+    expect(character.children.some((node) => node.type === 'comment-line')).toBe(false);
+
+    const code = character.children.find((node) => node.type === 'code') as { type: string; value: string } | undefined;
+    expect(code?.value).toBe('<<LX01 GO>>\n@B\n= nested source\n% nested comment');
+    expect(result.metadata.multipassDebug?.pass4.restoredNodeCount).toBeGreaterThan(0);
+  });
+
+  it('shows placeholder text in fenced code when pass4Restore is disabled', () => {
+    const input = ['```', '<<LX01 GO>>', '```'].join('\n');
+    const withRestore = parseDraMark(input, { pass4Restore: true });
+    const withoutRestore = parseDraMark(input, { pass4Restore: false, multipassDebug: true });
+
+    const codeWithRestore = withRestore.tree.children[0] as { type: string; value: string };
+    const codeWithoutRestore = withoutRestore.tree.children[0] as { type: string; value: string };
+
+    expect(codeWithRestore.type).toBe('code');
+    expect(codeWithRestore.value).toBe('<<LX01 GO>>');
+    expect(codeWithoutRestore.value).not.toBe(codeWithRestore.value);
+    expect(withoutRestore.metadata.multipassDebug?.pass4.executed).toBe(false);
+  });
+
+  it('does not parse inline tech cue inside inline code sanctuary', () => {
+    const input = ['@A', '这是 `<<LX01 GO>>` 的文本'].join('\n');
+    const result = parseDraMark(input);
+
+    const character = result.tree.children[0] as {
+      type: string;
+      children: Array<{ type: string; children: Array<{ type: string; value?: string }> }>;
+    };
+    const paragraph = character.children[0];
+
+    expect(paragraph.type).toBe('paragraph');
+    expect(paragraph.children.some((node) => node.type === 'inline-tech-cue')).toBe(false);
+    expect(paragraph.children.some((node) => node.type === 'inlineCode')).toBe(true);
+  });
 });

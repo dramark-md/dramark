@@ -117,6 +117,23 @@ describe('DraMark edge-case rules', () => {
     expect(collectText(first)).toContain('<<LX01');
     expect(collectText(first)).toContain('GO>>');
   });
+
+  it('keeps root directives inert inside fenced code and resumes parsing after fence', () => {
+    const input = ['```', '@B', '= source line', '```', '@A', '正常对白'].join('\n');
+    const result = parseDraMark(input, { translationEnabled: true });
+
+    expect(result.warnings).toHaveLength(0);
+    expect(result.tree.children.map((node) => node.type)).toEqual(['code', 'character-block']);
+
+    const code = result.tree.children[0] as { type: string; value: string };
+    const character = result.tree.children[1] as CharacterNode;
+
+    expect(code.type).toBe('code');
+    expect(code.value).toBe('@B\n= source line');
+    expect(character.type).toBe('character-block');
+    expect(character.name).toBe('A');
+    expect(character.children.some((node) => node.type === 'translation-pair')).toBe(false);
+  });
 });
 
 describe('warning behavior coverage', () => {

@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { DocumentEngine } from '../../../packages/app-core/index.js';
+import { WebWorkerClient } from './adapters/web-worker-client.js';
+import type { ParseViewModel } from '../../../src/core/index.js';
 import type { OutlineItem } from '../../../src/core/index.js';
 import type { DraMarkRootContent } from '../../../src/types.js';
 import './styles.css';
@@ -47,27 +48,23 @@ $$
 const DOC_URI = 'dramark://editor/current';
 
 function App(): React.JSX.Element {
-  const engineRef = React.useRef<DocumentEngine | null>(null);
-  if (engineRef.current === null) {
-    engineRef.current = new DocumentEngine({ debounceMs: 180 });
+  const clientRef = React.useRef<WebWorkerClient | null>(null);
+  if (clientRef.current === null) {
+    clientRef.current = new WebWorkerClient();
   }
-
-  const initialSnapshot = React.useMemo(
-    () => {
-      const engine = engineRef.current!;
-      engine.openDocument(DOC_URI, INITIAL_TEXT);
-      return engine.getSnapshot(DOC_URI)!;
-    },
-    [],
-  );
 
   const [sourceText, setSourceText] = React.useState(INITIAL_TEXT);
   const [activeLine, setActiveLine] = React.useState<number | null>(null);
-  const [viewModel, setViewModel] = React.useState(initialSnapshot.viewModel);
+  const [viewModel, setViewModel] = React.useState<ParseViewModel | null>(null);
 
   React.useEffect(() => {
-    const engine = engineRef.current!;
-    return engine.subscribe((snapshot) => {
+    const client = clientRef.current!;
+
+    client.openDocument(DOC_URI, INITIAL_TEXT).then((snapshot) => {
+      setViewModel(snapshot.viewModel);
+    });
+
+    return client.subscribe((snapshot) => {
       if (snapshot.uri === DOC_URI) {
         setViewModel(snapshot.viewModel);
       }
@@ -75,15 +72,30 @@ function App(): React.JSX.Element {
   }, []);
 
   React.useEffect(() => {
-    engineRef.current!.updateDocument(DOC_URI, sourceText);
-  }, [sourceText]);
+    if (viewModel !== null) {
+      clientRef.current!.updateDocument(DOC_URI, sourceText);
+    }
+  }, [sourceText, viewModel]);
+
+  if (viewModel === null) {
+    return (
+      <div className="app-shell">
+        <header className="app-header">
+          <div>
+            <h1>DraMark Web MVP</h1>
+            <p>Loading parser engine...</p>
+          </div>
+        </header>
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">
       <header className="app-header">
         <div>
           <h1>DraMark Web MVP</h1>
-          <p>Legacy parser | Debounced parse | Actor script preview</p>
+          <p>Worker parser | Debounced parse | Actor script preview</p>
         </div>
         <div className="status-badges">
           <span>Warnings {viewModel.warnings.length}</span>

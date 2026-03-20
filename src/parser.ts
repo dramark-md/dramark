@@ -81,14 +81,42 @@ type FenceState = {
   minLength: number;
 };
 
+type ProtectedLiteralMap = Record<string, string>;
+
+type Pass2ScanResult = {
+  segments: ScannedSegment[];
+  protectedLiterals: ProtectedLiteralMap;
+};
+
 const markdownParseOptions = getDraMarkFromMarkdownOptions();
 
+const protectedLiteralPrefix = '__DRAMARK_PROTECTED_LITERAL_';
+const protectedLiteralSuffix = '__';
+
 export function scanSegments(lines: string[], startIndex: number): ScannedSegment[] {
+  return scanSegmentsWithProtectedLiterals(lines, startIndex).segments;
+}
+
+function scanSegmentsWithProtectedLiterals(lines: string[], startIndex: number): Pass2ScanResult {
   const segments: ScannedSegment[] = [];
+  const protectedLiterals: ProtectedLiteralMap = {};
   let index = startIndex;
   let contentBuffer: string[] = [];
   let contentStartLine = startIndex;
   let fenceState: FenceState | null = null;
+  let protectedLiteralId = 0;
+
+  function nextProtectedLiteralPlaceholder(): string {
+    const placeholder = `${protectedLiteralPrefix}${protectedLiteralId}${protectedLiteralSuffix}`;
+    protectedLiteralId += 1;
+    return placeholder;
+  }
+
+  function protectLiteral(value: string): string {
+    const placeholder = nextProtectedLiteralPlaceholder();
+    protectedLiterals[placeholder] = value;
+    return placeholder;
+  }
 
   function flushContent(): void {
     if (contentBuffer.length === 0) {
@@ -105,11 +133,13 @@ export function scanSegments(lines: string[], startIndex: number): ScannedSegmen
     const isRoot = isRootDirectiveLine(rawLine);
 
     if (fenceState !== null) {
-      contentBuffer.push(rawLine);
-      index += 1;
       if (isFenceCloseLine(rawLine, fenceState)) {
+        contentBuffer.push(rawLine);
         fenceState = null;
+      } else {
+        contentBuffer.push(protectLiteral(rawLine));
       }
+      index += 1;
       continue;
     }
 
@@ -227,7 +257,10 @@ export function scanSegments(lines: string[], startIndex: number): ScannedSegmen
   }
 
   flushContent();
-  return segments;
+  return {
+    segments,
+    protectedLiterals,
+  };
 }
 
 export function parseDraMark(input: string, options?: DraMarkOptions): DraMarkParseResult {
@@ -239,7 +272,8 @@ export function parseDraMark(input: string, options?: DraMarkOptions): DraMarkPa
 
   const frontmatterPass = runPass0FrontmatterExtraction(lines, root);
   const translationEnabled = opts.translationEnabled || frontmatterPass.translationEnabledFromFrontmatter;
-  const segments = runPass2LexicalScan(lines, frontmatterPass.startIndex);
+  const pass2 = runPass2LexicalScan(lines, frontmatterPass.startIndex);
+  const segments = pass2.segments;
 
   const stack: StackFrame[] = [{ kind: 'root', children: root.children }];
 
@@ -572,7 +606,10 @@ export function parseDraMark(input: string, options?: DraMarkOptions): DraMarkPa
   }
 
   closeAllToRoot();
-  const pass4 = runPass4RestoreProtectedBlocks(root, { enabled: opts.pass4Restore });
+  const pass4 = runPass4RestoreProtectedBlocks(root, {
+    enabled: opts.pass4Restore,
+    protectedLiterals: pass2.protectedLiterals,
+  });
 
   const metadata: DraMarkMetadata = {
     frontmatterRaw: frontmatterPass.frontmatter?.value,
@@ -631,11 +668,14 @@ function runPass0FrontmatterExtraction(lines: string[], root: DraMarkRoot): {
   };
 }
 
-function runPass2LexicalScan(lines: string[], startIndex: number): ScannedSegment[] {
-  return scanSegments(lines, startIndex);
+function runPass2LexicalScan(lines: string[], startIndex: number): Pass2ScanResult {
+  return scanSegmentsWithProtectedLiterals(lines, startIndex);
 }
 
-function runPass4RestoreProtectedBlocks(_root: DraMarkRoot, options: { enabled: boolean }): {
+function runPass4RestoreProtectedBlocks(root: DraMarkRoot, options: {
+  enabled: boolean;
+  protectedLiterals: ProtectedLiteralMap;
+}): {
   executed: boolean;
   restoredNodeCount: number;
 } {
@@ -643,9 +683,59 @@ function runPass4RestoreProtectedBlocks(_root: DraMarkRoot, options: { enabled: 
     return { executed: false, restoredNodeCount: 0 };
   }
 
-  // Reserved for explicit placeholder de-protection when pass2 introduces
-  // protected sentinels for code sanctuary or other lexical shields.
-  return { executed: true, restoredNodeCount: 0 };
+  if (Object.keys(options.protectedLiterals).length === 0) {
+    return { executed: true, restoredNodeCount: 0 };
+  }
+
+  return {
+    executed: true,
+    restoredNodeCount: restoreProtectedLiteralsInTree(root, options.protectedLiterals),
+  };
+}
+
+function restoreProtectedLiteralsInTree(node: unknown, protectedLiterals: ProtectedLiteralMap): number {
+  if (node === null || typeof node !== 'object') {
+    return 0;
+  }
+
+  let restoredNodeCount = 0;
+
+  if (isCodeLikeNode(node)) {
+    const restored = restoreProtectedLiteralsInText(node.value, protectedLiterals);
+    if (restored !== node.value) {
+      node.value = restored;
+      restoredNodeCount += 1;
+    }
+  }
+
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      restoredNodeCount += restoreProtectedLiteralsInTree(item, protectedLiterals);
+    }
+    return restoredNodeCount;
+  }
+
+  for (const value of Object.values(node)) {
+    restoredNodeCount += restoreProtectedLiteralsInTree(value, protectedLiterals);
+  }
+
+  return restoredNodeCount;
+}
+
+function restoreProtectedLiteralsInText(value: string, protectedLiterals: ProtectedLiteralMap): string {
+  let restored = value;
+  for (const [placeholder, literal] of Object.entries(protectedLiterals)) {
+    if (!restored.includes(placeholder)) {
+      continue;
+    }
+    restored = restored.split(placeholder).join(literal);
+  }
+  return restored;
+}
+
+function isCodeLikeNode(node: object): node is { type: 'code' | 'inlineCode'; value: string } {
+  const candidate = node as { type?: unknown; value?: unknown };
+  return (candidate.type === 'code' || candidate.type === 'inlineCode') && typeof candidate.value === 'string';
 }
 
 function consumeFrontmatter(lines: string[]): (FrontmatterBlock & { endLine: number }) | null {

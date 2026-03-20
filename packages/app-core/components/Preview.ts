@@ -96,8 +96,8 @@ function renderBlock(block: RenderBlock): string {
 }
 
 function renderCharacterBlock(block: CharacterRenderBlock): string {
-  const namesHtml = block.names.map(name => `<span class="dm-character-name">${escapeHtml(name)}</span>`).join('');
-  const contextHtml = block.context ? `<div class="dm-character-context">${escapeHtml(block.context)}</div>` : '';
+  const namesHtml = block.names.map(name => `<span class="dm-character-name">${escapeHtml(name)}</span>`).join('<span class="dm-character-sep"> </span>');
+  const contextHtml = block.context ? `<div class="dm-character-context">[${escapeHtml(block.context)}]</div>` : '';
   
   const contentHtml = block.content.map(content => renderDialogueContent(content)).join('');
 
@@ -107,9 +107,11 @@ function renderCharacterBlock(block: CharacterRenderBlock): string {
 
   return `
     <div class="dm-character" data-mode="${block.performanceMode}">
-      <div class="dm-character-names">${namesHtml}</div>
-      <div class="dm-character-content">
+      <div class="dm-character-names">
+        <div class="dm-character-name-row">${namesHtml}</div>
         ${contextHtml}
+      </div>
+      <div class="dm-character-content">
         ${contentHtml}
         ${techCuesHtml}
       </div>
@@ -128,7 +130,7 @@ function renderSongContainerBlock(block: SongContainerBlock): string {
   const childrenHtml = block.children.map(child => renderBlock(child)).join('');
 
   return `
-    <div class="dm-song-container" data-mode="sung">
+    <div class="dm-song-container" data-mode="${block.performanceMode}">
       ${titleHtml}
       ${childrenHtml}
     </div>
@@ -185,6 +187,8 @@ function renderInlineChildren(children: DialogueChild[] | unknown): string {
         return `<span class="dm-inline-action">{${escapeHtml(child.value || '')}}</span>`;
       case 'inline-song':
         return `<span class="dm-inline-song">${escapeHtml(child.value || '')}</span>`;
+      case 'inline-spoken':
+        return `<span class="dm-inline-spoken">${escapeHtml(child.value || '')}</span>`;
       case 'inline-tech-cue':
         return renderInlineTechCue({ payload: child.payload || '', color: child.color });
       default:

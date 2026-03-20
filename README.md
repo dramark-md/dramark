@@ -9,6 +9,8 @@
 
 ![VS Code 插件渲染预览](https://github.com/user-attachments/assets/580e7ed2-d38c-4e26-8014-b6baaf3f21e4)
 
+🥳 第一版可用的 VS Code 插件已上线 Release 0.0.1！
+
 ## 亮点
 
 1. **少输入法切换 (Few IME Switch)** — 核心符号 `@`, `%`, `=` 在中文键盘下可直接通过 Shift 键打出，保证编剧创作心流不断

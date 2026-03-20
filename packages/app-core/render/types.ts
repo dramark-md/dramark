@@ -78,6 +78,7 @@ export type DialogueChild =
   | { type: 'strong'; children: Array<{ type: 'text'; value: string }> }
   | { type: 'inline-action'; value: string }
   | { type: 'inline-song'; value: string }
+  | { type: 'inline-spoken'; value: string }
   | { type: 'inline-tech-cue'; payload: string; color?: string };
 
 export interface GlobalActionBlock extends BaseRenderBlock {

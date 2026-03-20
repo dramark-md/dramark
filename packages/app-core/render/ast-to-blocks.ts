@@ -11,7 +11,7 @@ import type {
 import { matchTechCue } from './tech-cue-colors.js';
 
 interface InlineChild {
-  type: 'text' | 'break' | 'emphasis' | 'strong' | 'inline-action' | 'inline-song' | 'inline-tech-cue';
+  type: 'text' | 'break' | 'emphasis' | 'strong' | 'inline-action' | 'inline-song' | 'inline-spoken' | 'inline-tech-cue';
   value?: string;
   children?: Array<{ type: 'text'; value: string }>;
   payload?: string;
@@ -121,6 +121,8 @@ function convertNode(node: unknown, context: RenderContext, performanceMode: 'sp
       return convertCharacterBlock(typedNode, context, performanceMode);
     case 'song-container':
       return convertSongContainer(typedNode, context);
+    case 'spoken-segment':
+      return convertSpokenSegment(typedNode, context);
     case 'block-tech-cue':
       return convertBlockTechCue(typedNode, context, performanceMode);
     case 'comment-line':
@@ -146,7 +148,7 @@ function convertCharacterBlock(
   performanceMode: 'spoken' | 'sung'
 ): CharacterRenderBlock {
   const names = Array.isArray(node.names) ? node.names as string[] : [String(node.name || 'Unknown')];
-  const contextStr = node.context ? String(node.context) : undefined;
+  const contextStr = node.mood ? String(node.mood) : (node.context ? String(node.context) : undefined);
   
   const content: CharacterRenderBlock['content'] = [];
   const techCues: CharacterRenderBlock['techCues'] = [];
@@ -228,6 +230,14 @@ function convertContentNode(node: unknown, context: RenderContext): ContentNodeR
           value: String(typedNode.value || ''),
         } as InlineChild,
       };
+    case 'inline-spoken':
+      return {
+        isTechCue: false,
+        data: {
+          type: 'inline-spoken',
+          value: String(typedNode.value || ''),
+        } as InlineChild,
+      };
     case 'inline-tech-cue': {
       if (!context.config.showTechCues) {
         return null;
@@ -271,6 +281,8 @@ function convertInlineChild(node: unknown, context: RenderContext): InlineChild 
       return { type: 'inline-action', value: String(typedNode.value || '') };
     case 'inline-song':
       return { type: 'inline-song', value: String(typedNode.value || '') };
+    case 'inline-spoken':
+      return { type: 'inline-spoken', value: String(typedNode.value || '') };
     case 'inline-tech-cue': {
       if (!context.config.showTechCues) {
         return null;
@@ -339,6 +351,26 @@ function convertSongContainer(node: Record<string, unknown>, context: RenderCont
     title,
     children,
     performanceMode: 'sung',
+  };
+}
+
+function convertSpokenSegment(node: Record<string, unknown>, context: RenderContext): RenderBlock {
+  const children: RenderBlock[] = [];
+
+  if (Array.isArray(node.children)) {
+    for (const child of node.children) {
+      const converted = convertNode(child, context, 'spoken');
+      if (converted) {
+        children.push(converted);
+      }
+    }
+  }
+
+  return {
+    type: 'song-container',
+    title: undefined,
+    children,
+    performanceMode: 'spoken',
   };
 }
 

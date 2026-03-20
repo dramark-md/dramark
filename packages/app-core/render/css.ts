@@ -32,8 +32,8 @@ export function generateCSS(theme: Theme, config: PreviewConfig): string {
 /* Layout */
 .dramark-layout {
   display: grid;
-  gap: 0.5rem;
-  padding: 0.5rem;
+  gap: 0.75rem;
+  padding: 0.75rem;
 }
 
 .dm-layout-mobile {
@@ -41,11 +41,11 @@ export function generateCSS(theme: Theme, config: PreviewConfig): string {
 }
 
 .dm-row-slot {
-  min-height: 1.1rem;
+  min-height: 1.35rem;
 }
 
 .dm-row-placeholder {
-  min-height: 1.1rem;
+  min-height: 1.35rem;
 }
 
 /* Three column layout (>960px) */
@@ -96,8 +96,8 @@ export function generateCSS(theme: Theme, config: PreviewConfig): string {
 .dm-character {
   display: flex;
   gap: 0.6rem;
-  margin: 0.35rem 0;
-  padding: 0.1rem 0;
+  margin: 0.5rem 0;
+  padding: 0.15rem 0;
   border-radius: 4px;
 }
 
@@ -114,7 +114,27 @@ export function generateCSS(theme: Theme, config: PreviewConfig): string {
   flex-shrink: 0;
   font-weight: 600;
   color: var(--dm-character);
-  white-space: nowrap;
+  white-space: normal;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.05rem;
+}
+
+.dm-character-name-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.dm-character-name {
+  display: inline-block;
+}
+
+.dm-character-sep {
+  display: inline-block;
+  width: 0.3rem;
 }
 
 .dm-character-content {
@@ -124,12 +144,12 @@ export function generateCSS(theme: Theme, config: PreviewConfig): string {
 .dm-character-context {
   font-size: 0.875rem;
   color: var(--dm-text-muted);
-  margin-bottom: 0.1rem;
+  margin-top: 0;
 }
 
 /* Dialogue Content */
 .dm-paragraph {
-  margin: 0.22rem 0;
+  margin: 0.35rem 0;
   white-space: pre-wrap;
 }
 
@@ -152,6 +172,11 @@ export function generateCSS(theme: Theme, config: PreviewConfig): string {
   background: rgba(196, 168, 106, 0.1);
   padding: 0 0.25rem;
   border-radius: 2px;
+}
+
+.dm-inline-spoken {
+  color: var(--dm-text-muted);
+  font-style: normal;
 }
 
 .dm-inline-tech-cue {
@@ -197,16 +222,34 @@ ${generateTechCueCSS()}
 /* Song Container */
 .dm-song-container {
   border-left: none;
-  padding: 0.45rem 0.6rem;
-  margin: 0.35rem 0;
-  background: var(--dm-sung-bg);
+  padding: 0;
+  margin: 0.6rem 0;
   border-radius: 6px;
+}
+
+.dm-song-container[data-mode="sung"] {
+  background: var(--dm-sung-bg);
+}
+
+.dm-song-container[data-mode="spoken"] {
+  background: var(--dm-spoken-bg);
+}
+
+.dm-song-container > .dm-character,
+.dm-song-container > .dm-global-action,
+.dm-song-container > .dm-tech-cue-block,
+.dm-song-container > .dm-comment,
+.dm-song-container > .dm-song-container,
+.dm-song-container > .dm-heading,
+.dm-song-container > .dm-thematic-break {
+  margin-left: 0.6rem;
+  margin-right: 0.6rem;
 }
 
 .dm-song-title {
   font-weight: 600;
   font-size: 1rem;
-  margin-bottom: 0.2rem;
+  margin: 0.3rem 0.6rem 0.2rem;
   color: var(--dm-text-muted);
 }
 
@@ -218,7 +261,7 @@ ${generateTechCueCSS()}
   white-space: pre-wrap;
   padding: 0.3rem 0.45rem;
   border-left: 2px solid var(--dm-border);
-  margin: 0.25rem 0;
+  margin: 0.35rem 0;
 }
 
 .dm-comment-block {
@@ -255,7 +298,7 @@ ${generateTechCueCSS()}
 
 /* Global Action */
 .dm-global-action {
-  margin: 0.25rem 0;
+  margin: 0.35rem 0;
   padding: 0.2rem 0;
   font-style: italic;
   color: var(--dm-text-muted);
@@ -305,6 +348,16 @@ ${generateTechCueCSS()}
   justify-content: center;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   transition: transform 0.2s;
+}
+
+.dm-config-trigger .codicon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.dm-config-trigger .codicon-settings-gear::before {
+  content: "\\ea6c";
+  font-family: codicon;
 }
 
 .dm-config-trigger:hover {

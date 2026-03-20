@@ -1,5 +1,7 @@
 # DraMark Editor/Renderer v1 Plan (Web + VS Code, Micromark-Integrated)
 
+> 注：2026-03-20 起，跨端分层与迁移步骤以 `spec/web-vscode-architecture-v2.md` 为准；本文件保留为 v1 范围定义与验收基线。
+
 ## Summary
 Build a shared `core` package on top of current `parseDraMark` output, then ship two clients: a Web editor and a VS Code extension.
 v1 is text-first editing with full-document debounced parse, Actor Script rendering as default, and micromark-integrated multipass runtime as production semantic engine.

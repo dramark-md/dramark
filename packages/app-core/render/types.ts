@@ -67,8 +67,10 @@ export interface CharacterRenderBlock extends BaseRenderBlock {
 }
 
 export interface DialogueContent {
-  type: 'paragraph' | 'list' | 'blockquote';
+  type: 'paragraph' | 'list' | 'blockquote' | 'translation';
   children: Array<DialogueChild>;
+  sourceText?: string;
+  targetText?: string;
 }
 
 export type DialogueChild =

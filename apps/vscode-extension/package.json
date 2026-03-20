@@ -12,6 +12,7 @@
     "Programming Languages"
   ],
   "main": "./dist/extension.js",
+  "extensionPack": ["redhat.vscode-yaml"],
   "contributes": {
     "languages": [
       {
@@ -29,6 +30,16 @@
       {
         "command": "dramark.copyDiagnostics",
         "title": "DraMark: Copy Diagnostics"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "dramark",
+        "scopeName": "source.dramark",
+        "path": "./dramark.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.block.frontmatter.dramark": "yaml"
+        }
       }
     ]
   },

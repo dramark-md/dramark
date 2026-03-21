@@ -6,20 +6,18 @@ Tech Cue 用于表达技术调度信息（灯光、音效、麦克风等）。
 
 | 形态 | 类型 | 语法 | 说明 |
 |------|------|------|------|
-| **行内 Tech Cue** | Attached Node | `<<内容>>` | 标准 CommonMark，不跨行 |
-| **单行块级 Tech Cue** | Structural Block | `<<< 内容 >>>` | 独占一行，行尾闭合 |
-| **多行块级 Tech Cue** | Structural Block | `<<< [属性]` ... `>>>` | 可包含行内 Tech Cue |
+| **行内 Tech Cue** | Inline | `<<内容>>` | 标准 CommonMark，不跨行 |
+| **单行块级 Tech Cue** | Block | `<<< 内容 >>>` | 独占一行，行尾闭合 |
+| **多行块级 Tech Cue** | Block | `<<< [属性头]` ... `>>>` | 可包含行内 Tech Cue |
 
 ## 行内 Tech Cue
 
 **语法**：`<<内容>>`
 
 ```dramark
-@A
-你来了。<<LX01 GO>>
+# 02 相遇小帕
 
-@B
-<<SFX_THUNDER>> 打雷了！
+<<BGM_ENTER GO>> <<LX: SPOT_PARK 渐起>>
 ```
 
 ### 规则
@@ -33,7 +31,11 @@ Tech Cue 用于表达技术调度信息（灯光、音效、麦克风等）。
 同一行多组 `<<` / `>>` 按**最近配对**规则：
 
 ```dramark
-<<LX01>> 和 <<LX02>>  # 正确，两组 Tech Cue
+@小帕
+晚上好呀夜宵先生。
+
+@小塔
+晚上好？夜宵？<<BGM_ENTER STOP>>
 ```
 
 ## 单行块级 Tech Cue
@@ -41,12 +43,9 @@ Tech Cue 用于表达技术调度信息（灯光、音效、麦克风等）。
 **语法**：`<<<` + 内容 + `>>>`（行尾闭合）
 
 ```dramark
-@A
-台词内容。
+小帕下。
 
-<<<LX01 GO, LX02 READY>>> % 独立技术提示
-
-继续台词。
+<<< SFX 春去秋来 >>>
 ```
 
 这会自动关闭不兼容的块，添加内容后立即关闭。
@@ -59,10 +58,8 @@ Tech Cue 用于表达技术调度信息（灯光、音效、麦克风等）。
 
 ```dramark
 <<<
-灯光：面光渐暗 <<LX01-FADE>>
-音效：雨声入 <<SND-RAIN-01>>
-演员移动至 <<MARK-A>> 位置
-<<<
+LX: SPOT_DUO 灯光变化同时打亮二人。
+>>>
 ```
 
 ### 属性头
@@ -71,8 +68,8 @@ Tech Cue 用于表达技术调度信息（灯光、音效、麦克风等）。
 
 ```dramark
 <<< LX
-主面光：100%
-侧光：80%
+SPOT_PARK 渐起
+SPOT_XIAOTA 跟随
 >>>
 ```
 
@@ -80,14 +77,6 @@ Tech Cue 用于表达技术调度信息（灯光、音效、麦克风等）。
 
 1. `>>>` 主闭合（优先级更高）
 2. `<<<` 对称回退闭合（仅当未匹配到 `>>>` 时）
-
-```dramark
-<<<
-<<<
->>>
-```
-
-第二行 `<<<` 是内容，第三行 `>>>` 闭合。
 
 ### 内部嵌套
 
@@ -102,19 +91,27 @@ Tech Cue 用于表达技术调度信息（灯光、音效、麦克风等）。
 ---
 tech:
   mics:
-    - id: HM1
-      label: 主麦
+    - id: B1
+    - id: B2
+    - id: B3
   sfx:
     color: "#66ccff"
     entries:
       - id: BGM_ENTER
         desc: 入场音乐
+      - id: BGM_PARK_NIGHT
+        desc: 夜晚公园主题
+      - id: SFX_THUD
+        desc: 手刀敲击声
   lx:
     color: "#ff66cc"
     entries:
-      - id: SPOT_MAIN
-        desc: 面光
-  color: "#888888"  # 默认颜色
+      - id: SPOT_PARK
+        desc: 公园环境光
+      - id: SPOT_XIAOTA
+        desc: 小塔独光
+      - id: SPOT_DUO
+        desc: 双人光区
 ---
 ```
 
@@ -125,40 +122,27 @@ tech:
 ### 灯光提示
 
 ```dramark
-<<LX: SPOT_PARK 渐起>>
+<<BGM_ENTER GO>> <<LX: SPOT_PARK 渐起>>
 
 <<<
-LX: 
-- SPOT_PARK 100%
-- SPOT_XIAOTA 50%
+LX: SPOT_DUO 灯光变化同时打亮二人。
 >>>
 ```
 
 ### 音效提示
 
 ```dramark
-<<BGM_PARK_NIGHT GO>>
-
-<<SFX: SFX_THUD>>
+<<SFX: SFX_THUD>> 小帕手刀敲小塔，小塔被吓一跳。
 ```
 
-### 麦克风提示
+### 场景背景音乐
 
 ```dramark
-@小帕 <<=HM1>>
-你好！
+小塔行礼。<<BGM_PARK_NIGHT GO>>
 
-@小塔 <<=HM2>>
-嗨！
+@小帕
+别急！再多聊聊嘛，我从来没见过你，怎么进来的？<<BGM_PARK_NIGHT GO>>
 ```
-
-换麦简洁语法（草案）：
-
-| 语法 | 含义 |
-|------|------|
-| `<<=HM2>>` | 当前角色切到 HM2 |
-| `<<角色=HM2>>` | 指定角色切到 HM2 |
-| `<<HM1->HM2>>` | 从 HM1 切到 HM2 |
 
 ## 注释支持
 
@@ -166,10 +150,7 @@ TechCueBlock 内允许完整注释语法：
 
 ```dramark
 <<<
-灯光 % 这是行注释
-音效
-%%
-这是块注释
-%%
+LX: SPOT_PARK % 这是公园环境光
+SFX: BGM_ENTER % 入场音乐
 >>>
 ```

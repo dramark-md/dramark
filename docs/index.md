@@ -33,8 +33,8 @@ features:
     title: CommonMark 兼容
     details: 完整的 Markdown 支持，可使用加粗、斜体、列表等标准语法
   - icon: 🔌
-    title: 易于集成
-    details: 提供 Remark 插件，可轻松集成到各种静态站点生成器和编辑器中
+    title: VSCode 扩展
+    details: 提供 VSCode 扩展，支持语法高亮、实时预览和译配模式切换
 ---
 
 ## 一个简单的示例
@@ -42,38 +42,57 @@ features:
 ```dramark
 ---
 meta:
-  title: 相遇
-  author: 剧作家
+  title: 在公园的长椅上睡大觉
+  author: 小橘猫_zzz
+  locale: zh-CN
+translation:
+  source_lang: zh-CN
+  target_lang: en
 casting:
   characters:
     - name: 小帕
+      aliases: [帕]
+      mic: B1
     - name: 小塔
+      aliases: [塔]
+      mic: B2
+tech:
+  mics:
+    - id: B1
+    - id: B2
 ---
 
-# 第一幕 公园相遇
+# 02 相遇小帕
 
-小塔独自坐在公园的长椅上。
+<<BGM_ENTER GO>> <<LX: SPOT_PARK 渐起>>
 
-@小塔
-又是一个平常的下午。
+众人四下，小塔到长椅上躺着。
 
-@小帕 [兴奋地]
-你好！我可以坐这里吗？
-
-@小塔
-当然可以。
+$$ 小帕饿饿歌
+@小帕
+= 哪里会有夜宵呢
+Where to find a bite tonight?
+= 哪里有好吃的呢
+Where's the tasty in my sight?
+$$
 
 ---
 
-夜幕降临。
+@小帕 [惊喜地]
+人类 人类
+竟然是没见过的人类
 
-$$
-@小帕 @小塔
-= Where do we go from here?
-我们将何去何从
-= Where do we go from here?
-未来又在何方
-$$
+@小帕
+{蹲下，捧起小塔的手｜小塔醒来}
+那我 还在 忍耐什么
+吃饱再说
+
+@小帕
+真好喝！
+@@
+
+@小塔
+晚上好？夜宵？
 ```
 
 ## 为什么选择 DraMark？
@@ -99,12 +118,6 @@ DraMark 使用块级结构组织剧本内容：
 
 ## 开始使用
 
-```bash
-# 安装 DraMark 解析器
-npm install remark-dramark
+查看 [快速入门指南](/guide/getting-started) 开始使用！
 
-# 或使用 pnpm
-pnpm add remark-dramark
-```
-
-然后查看 [快速入门指南](/guide/getting-started) 开始使用！
+推荐安装 [VSCode DraMark 扩展](https://marketplace.visualstudio.com/items?itemName=Leo.dramark) 获得最佳编写体验。

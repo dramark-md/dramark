@@ -7,27 +7,24 @@
 **语法**：独占一行的 `$$` 或 `$$ 标题文本`
 
 ```dramark
-$$
-@汉密尔顿
-我绝不会放弃这个机会！
-$$
-```
-
-带标题：
-
-```dramark
-$$ My Shot
-@汉密尔顿
-我绝不放弃我的机会！
-$$
-
-$$ 无标题唱段
-@角色
-内容...
+$$ 小帕饿饿歌
+@小帕
+= 哪里会有夜宵呢
+Where to find a bite tonight?
+= 哪里有好吃的呢
+Where's the tasty in my sight?
+= 到了夜里总是会突然肚子饿
+It always happens in the midnight -- the hunger strikes
+= 便利店已经关门
+The stores are closed, I tried the door
+= 公园里也没有人
+The park is empty, searched the floor
+= 我该去哪里找好吃的夜宵呢
+Where can I turn to find the snack I am craving more?
 $$
 ```
 
-标题存储在 `SongBlock.title` 字段中。
+标题存储在 `SongContainer.title` 字段中。
 
 ## 唱段内部规则
 
@@ -36,40 +33,44 @@ $$
 在唱段内遇到 `@角色名` 不会退出唱段，仅切换演唱者：
 
 ```dramark
-$$
-@安灼拉
-我们站在街垒之上！
+$$ 小帕饿饿歌
+@小帕
+= 哪里会有夜宵呢
+Where to find a bite tonight?
 
-@公白飞
-我们会坚持下去！
+---
 
-@学生们
-{齐声}
-直到最后一刻！
+小帕发现了躺着的小塔。
+
+@小塔
+什么情况
+谁告诉我 这是 什么情况
+难道是睡得太久
+有些迷糊
 $$
 ```
-
-这支持多角色对唱和合唱场景。
 
 ### 场景分隔
 
 在唱段内，`---` 不会退出唱段，仅将表演状态切回 GlobalBlock：
 
 ```dramark
-$$
-@演唱者
-第一段唱词...
+$$ 小帕饿饿歌
+@小帕
+= 哪里会有夜宵呢
+Where to find a bite tonight?
+= 到了夜里总是会突然肚子饿
+It always happens in the midnight -- the hunger strikes
 
 ---
 
-间奏：灯光渐暗，聚光灯打在舞台中央。
+小帕发现了躺着的小塔。
 
-@另一位演唱者
-第二段唱词...
+@小帕 [惊喜地]
+人类 人类
+竟然是没见过的人类
 $$
 ```
-
-这用于表示间奏或音乐伴奏下的舞台调度。
 
 ### 块级 Tech Cue
 
@@ -77,15 +78,17 @@ $$
 
 ```dramark
 $$
-@歌手
-唱词...
+@小塔
+这怎么聊
+不如问我 为何 这还不跑
 
+@@
 <<<
-LX: 聚光灯跟随
-SFX: 背景音乐渐强
+LX: SPOT_DUO 灯光变化同时打亮二人。
 >>>
 
-继续唱...
+@小塔 @小帕
+看着她 粉白色的脸｜$夜宵先生$
 $$
 ```
 
@@ -96,9 +99,10 @@ $$
 独占一行的 `$$`：
 
 ```dramark
-$$
-@角色
-唱词结束。
+$$ 小帕饿饿歌
+@小帕
+= 哪里会有夜宵呢
+Where to find a bite tonight?
 $$
 
 回到普通对白模式。
@@ -106,56 +110,30 @@ $$
 
 ### 隐式退出
 
-根级别的 `#` 或 `##` 等级别标题会穿透 SongBlock：
-
-```dramark
-$$
-@角色
-这是最后一首歌。
-
-# 第二幕
-
-标题触发了唱段的隐式退出。
-```
+根级别的 `#` 或 `##` 等级别标题会穿透 SongContainer。
 
 ## 行内唱段
 
 在念白模式中使用 `$唱词$` 插入短促唱词：
 
 ```dramark
-@汉密尔顿
-我不会放弃 $my shot$。
-
-$$
-@汉密尔顿
-现在我在唱段里，$这里变成念白$。
-$$
+@小塔 @小帕
+看着她 粉白色的脸｜$夜宵先生$
+她 清澈的双眼｜$你为什么不说话$
+我 无法移开视线｜$你从哪里来的呀$
 ```
 
 **语义切换**：
-- 在 GlobalBlock 中：`$...$` 表示**行内唱段**
-- 在 SongBlock 中：`$...$` 表示**行内念白**
-
-## 完整示例
+- 在 GlobalBlock 中：`$...$` 表示**行内唱段**（`inline-song`）
+- 在 SongContainer 中：`$...$` 表示**行内念白**（`inline-spoken`）
 
 ```dramark
-$$
-$$ 相逢之歌
-
-@小帕
-= Where to find a bite tonight?
-哪里会有夜宵呢
-= Where's the tasty in my sight?
-哪里有好吃的呢
-= It always happens in the midnight
-到了夜里总是会突然肚子饿
-
----
-
-音乐渐弱，灯光转为蓝色。
-
-@小塔
-{缓缓睁眼}
-这是哪里？
+@小塔 @小帕
+回想她 轻灵的动作｜你为什么不说话
+她 俏皮地诉说｜你从哪里来的呀
+我饿了 饿了 饿了｜嘟嘟 小塔 咘咘
+然后 我就被咬了｜{打断} $搭理我一下！$
 $$
 ```
+
+在上面的例子中，`$搭理我一下！$` 出现在 SongContainer 内，因此是行内念白。

@@ -73,24 +73,32 @@ use_frontmatter_from: string  # URL 或文件路径
 
 ## 解析器选项
 
-### parserMode
-
-解析器模式。
-
-- `legacy`（默认）：使用自定义状态机解析器
-- `micromark`：使用 micromark 扩展
-
 ### translationEnabled
 
-是否启用译配模式。若 Frontmatter 已设置，以此为准。
+是否启用译配模式。若 Frontmatter 已设置 `translation.enabled: true`，以此为准。默认 `false`。
 
 ### includeComments
 
-是否在 AST 中包含注释节点。默认 `false`。
+是否在 AST 中包含注释节点（`comment-line`、`comment-block`）。默认 `false`。
 
 ### strictMode
 
-严格模式。启用时，遇到警告会抛出错误。默认 `false`。
+严格模式。启用时，遇到警告会抛出 `DraMarkParseError`。默认 `false`。
+
+### characterDeclarationMode
+
+角色声明校验模式。
+
+- `'strict'`（默认）：角色声明必须独占一行
+- `'compat'`：兼容模式，允许行内角色声明（会产生 `DEPRECATED_INLINE_CHARACTER_DECLARATION` 警告）
+
+### multipassDebug
+
+是否输出多阶段解析的调试信息。开启后可在 `file.data.dramark.multipassDebug` 或 `result.metadata.multipassDebug` 中查看各 pass 的快照。默认 `false`。
+
+### pass4Restore
+
+是否执行 Pass 4 还原阶段（还原代码保护区中的占位符）。默认 `true`。
 
 ## 使用示例
 
@@ -100,7 +108,6 @@ use_frontmatter_from: string  # URL 或文件路径
 import { parseDraMark } from 'dramark';
 
 const result = parseDraMark(source, {
-  parserMode: 'legacy',
   translationEnabled: true,
   includeComments: false,
   strictMode: false
@@ -121,7 +128,6 @@ import remarkDraMark from 'remark-dramark';
 const result = await unified()
   .use(remarkParse)
   .use(remarkDraMark, {
-    parserMode: 'legacy',
     translationEnabled: true
   })
   .process(source);

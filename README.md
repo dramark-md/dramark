@@ -7,6 +7,8 @@
 
 文件扩展名：`.dra.md`, `.dramark`, `.drm` （推荐前两种）
 
+文档：[https://dramark.烫烫烫的锟斤拷.top](https://dramark.xn--huu92dpwpaa217f909c.top/)
+
 ![VS Code 插件渲染预览](https://github.com/user-attachments/assets/580e7ed2-d38c-4e26-8014-b6baaf3f21e4)
 
 🥳 第一版可用的 VS Code 插件已上线 [Marketplace](https://marketplace.visualstudio.com/items?itemName=LeoLi.dramark) 和 Release 0.0.1！
@@ -23,7 +25,7 @@
 
 ## 快速示例
 
-更完整的示例请查看 [《在公园的长椅上睡大觉》第二幕剧本](examples/where-the-bench-remembers.dramark)。感谢小橘猫_zzz老师提供的授权。
+更完整的示例请查看 [《在公园的长椅上睡大觉》第二幕剧本](examples/where-the-bench-remembers.dramark)。感谢[@小橘猫_zzz](https://space.bilibili.com/33539494)老师提供的授权和大力支持！
 
 ```dramark
 ---

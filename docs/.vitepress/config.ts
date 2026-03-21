@@ -7,6 +7,10 @@ export default defineConfig({
   
   lastUpdated: true,
   cleanUrls: true,
+
+  sitemap: {
+    hostname: 'https://docs.dramark.dev',
+  },
   
   themeConfig: {
     logo: '/logo.svg',

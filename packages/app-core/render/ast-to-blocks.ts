@@ -52,30 +52,44 @@ export function buildColumnarLayout(
     if (block.type === 'song-container') {
       const separated = separateSongContainerSideBlocks(block);
       center.push(separated.block);
-      rows.push({ left: null, center: separated.block, right: null });
-      for (const techCue of separated.techCues) {
-        if (context.config.showTechCues) {
-          left.push(techCue);
-          rows.push({ left: techCue, center: null, right: null });
-        }
+      const visibleTechCues = context.config.showTechCues ? separated.techCues : [];
+      const visibleComments = context.config.showComments ? separated.comments : [];
+      const firstLeft = visibleTechCues.length > 0 ? visibleTechCues[0] : null;
+      const firstRight = visibleComments.length > 0 ? visibleComments[0] : null;
+      rows.push({ left: firstLeft, center: separated.block, right: firstRight });
+
+      if (firstLeft) {
+        left.push(firstLeft);
       }
-      for (const comment of separated.comments) {
-        if (context.config.showComments) {
-          right.push(comment);
-          rows.push({ left: null, center: null, right: comment });
-        }
+      if (firstRight) {
+        right.push(firstRight);
+      }
+
+      for (let i = 1; i < visibleTechCues.length; i += 1) {
+        const techCue = visibleTechCues[i];
+        left.push(techCue);
+        rows.push({ left: techCue, center: null, right: null });
+      }
+      for (let i = 1; i < visibleComments.length; i += 1) {
+        const comment = visibleComments[i];
+        right.push(comment);
+        rows.push({ left: null, center: null, right: comment });
       }
       continue;
     }
 
     if (block.type === 'character') {
       center.push(block);
-      rows.push({ left: null, center: block, right: null });
-      if (context.config.showComments) {
-        for (const comment of block.comments) {
+      if (context.config.showComments && block.comments.length > 0) {
+        const [firstComment, ...restComments] = block.comments;
+        right.push(firstComment);
+        rows.push({ left: null, center: block, right: firstComment });
+        for (const comment of restComments) {
           right.push(comment);
           rows.push({ left: null, center: null, right: comment });
         }
+      } else {
+        rows.push({ left: null, center: block, right: null });
       }
     } else if (block.type === 'tech-cue') {
       if (block.variant === 'block' && context.config.showTechCues) {
@@ -111,17 +125,19 @@ function separateSongContainerSideBlocks(block: SongContainerBlock): {
   for (const child of block.children) {
     if (child.type === 'tech-cue' && child.variant === 'block') {
       techCues.push(child);
+      children.push(child);
       continue;
     }
     if (child.type === 'comment') {
       comments.push(child);
+      children.push(child);
       continue;
     }
     if (child.type === 'character') {
       if (child.comments.length > 0) {
         comments.push(...child.comments);
       }
-      children.push({ ...child, comments: [] });
+      children.push(child);
       continue;
     }
     if (child.type === 'song-container') {
@@ -194,11 +210,25 @@ function convertCharacterBlock(
     for (const child of node.children) {
       const childNode = child as Record<string, unknown>;
       if (childNode?.type === 'comment-line') {
-        comments.push(convertCommentLine(childNode, context, performanceMode));
+        const converted = convertCommentLine(childNode, context, performanceMode);
+        comments.push(converted);
+        content.push({
+          type: 'comment',
+          children: [],
+          targetText: converted.content,
+          commentVariant: converted.variant,
+        });
         continue;
       }
       if (childNode?.type === 'comment-block') {
-        comments.push(convertCommentBlock(childNode, context, performanceMode));
+        const converted = convertCommentBlock(childNode, context, performanceMode);
+        comments.push(converted);
+        content.push({
+          type: 'comment',
+          children: [],
+          targetText: converted.content,
+          commentVariant: converted.variant,
+        });
         continue;
       }
       const result = convertContentNode(child, context);

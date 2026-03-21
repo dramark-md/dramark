@@ -138,6 +138,7 @@ describe('render/comment layout', () => {
 
     expect(layout.center.some((block) => block.type === 'song-container')).toBe(true);
     expect(layout.right.some((block) => block.type === 'comment' && block.content.includes('注释文本'))).toBe(true);
+    expect(layout.rows.some((row) => row.center?.type === 'song-container' && row.right?.type === 'comment')).toBe(true);
   });
 
   it('hides comment column content when showComments=false but keeps center content', () => {

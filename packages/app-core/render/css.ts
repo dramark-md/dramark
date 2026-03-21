@@ -56,6 +56,10 @@ export function generateCSS(theme: Theme, config: PreviewConfig): string {
   min-height: 1.35rem;
 }
 
+.dramark-preview[data-has-right="true"] .dm-layout-desktop .dramark-center .dm-comment {
+  display: none;
+}
+
 /* Three column layout (>960px) */
 @container preview (min-width: 960px) {
   .dramark-preview[data-columns="3"] .dm-layout-desktop {
@@ -63,7 +67,7 @@ export function generateCSS(theme: Theme, config: PreviewConfig): string {
   }
 
   .dramark-preview[data-columns="3"] .dramark-center {
-    padding: 0 1.5rem;
+    padding: 0 0.5rem;
   }
 
   .dramark-preview[data-columns="2"][data-has-left="true"] .dm-layout-desktop {
@@ -93,13 +97,14 @@ export function generateCSS(theme: Theme, config: PreviewConfig): string {
   .dramark-preview[data-has-right="false"] .dramark-right {
     display: none;
   }
+
 }
 
 /* Two column layout (>600px) - prioritize right column (comments) over left */
 @container preview (min-width: 600px) and (max-width: 959px) {
   /* Add horizontal padding to center column for spacing */
   .dramark-preview .dramark-center {
-    padding: 0 1.5rem;
+    padding: 0 0.5rem;
   }
 
   /* When both sidebars present, use center+right, hide left */

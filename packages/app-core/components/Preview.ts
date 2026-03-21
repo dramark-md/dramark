@@ -68,16 +68,17 @@ function renderRowForMobile(
   row: { left: TechCueBlock | null; center: RenderBlock | null; right: CommentRenderBlock | null },
   config: PreviewConfig,
 ): string {
+  const htmlParts: string[] = [];
   if (row.center !== null) {
-    return renderBlock(row.center, config);
+    htmlParts.push(renderBlock(row.center, config));
   }
   if (row.left !== null) {
-    return renderTechCueBlock(row.left);
+    htmlParts.push(renderTechCueBlock(row.left));
   }
   if (row.right !== null) {
-    return renderCommentBlock(row.right);
+    htmlParts.push(renderCommentBlock(row.right));
   }
-  return '';
+  return htmlParts.join('');
 }
 
 function renderBlock(block: RenderBlock, config: PreviewConfig): string {
@@ -105,7 +106,7 @@ function renderCharacterBlock(block: CharacterRenderBlock, config: PreviewConfig
   const namesHtml = block.names.map(name => `<span class="dm-character-name">${escapeHtml(name)}</span>`).join('<span class="dm-character-sep"> </span>');
   const contextHtml = block.context ? `<div class="dm-character-context">[${escapeHtml(block.context)}]</div>` : '';
   
-  const contentHtml = block.content.map((content) => renderDialogueContent(content, config)).join('');
+  const contentHtml = block.content.map((content) => renderDialogueContent(content, config, block.performanceMode)).join('');
 
   const techCuesHtml = block.techCues.length > 0
     ? `<div class="dm-character-tech-cues">${block.techCues.map(tc => renderInlineTechCue(tc)).join('')}</div>`
@@ -126,7 +127,7 @@ function renderCharacterBlock(block: CharacterRenderBlock, config: PreviewConfig
 }
 
 function renderGlobalActionBlock(block: GlobalActionBlock, config: PreviewConfig): string {
-  const contentHtml = block.content.map((content) => renderDialogueContent(content, config)).join('');
+  const contentHtml = block.content.map((content) => renderDialogueContent(content, config, block.performanceMode)).join('');
 
   return `<div class="dm-global-action" data-mode="${block.performanceMode}">${contentHtml}</div>`;
 }
@@ -163,7 +164,11 @@ function renderCommentBlock(block: CommentRenderBlock): string {
   return `<div class="dm-comment ${variantClass}" data-mode="${block.performanceMode}">${escapeHtml(block.content)}</div>`;
 }
 
-function renderDialogueContent(content: { type: string; children: DialogueChild[]; sourceText?: string; targetText?: string }, config: PreviewConfig): string {
+function renderDialogueContent(
+  content: { type: string; children: DialogueChild[]; sourceText?: string; targetText?: string; commentVariant?: 'line' | 'block' },
+  config: PreviewConfig,
+  performanceMode: 'spoken' | 'sung',
+): string {
   if (content.type === 'paragraph') {
     return `<p class="dm-paragraph">${renderInlineChildren(content.children)}</p>`;
   }
@@ -182,6 +187,15 @@ function renderDialogueContent(content: { type: string; children: DialogueChild[
       return '';
     }
     return `<div class="dm-translation" data-layout="${config.translationLayout}">${sourceHtml}${targetHtml}</div>`;
+  }
+  if (content.type === 'comment') {
+    const variant = content.commentVariant === 'block' ? 'block' : 'line';
+    return renderCommentBlock({
+      type: 'comment',
+      variant,
+      content: content.targetText || '',
+      performanceMode,
+    });
   }
   return '';
 }

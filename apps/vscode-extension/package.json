@@ -43,9 +43,19 @@
         "icon": "$(preview)"
       },
       {
-        "command": "dramark.exportPdf",
-        "title": "DraMark: Export Preview to PDF",
+        "command": "dramark.export",
+        "title": "DraMark: Export...",
         "icon": "$(export)"
+      },
+      {
+        "command": "dramark.exportPdf",
+        "title": "Export to PDF",
+        "icon": "$(file-pdf)"
+      },
+      {
+        "command": "dramark.exportHtml",
+        "title": "Export to HTML",
+        "icon": "$(file-code)"
       },
       {
         "command": "dramark.copyDiagnostics",

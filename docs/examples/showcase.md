@@ -1,10 +1,8 @@
 # 完整剧本示例
 
-这里是使用 DraMark 编写的完整剧本示例。
+以下是使用 DraMark 编写的完整剧本——[《在公园的长椅上睡大觉》第二幕](https://github.com/leostudiooo/dramark/blob/main/examples/where-the-bench-remembers.dramark)。
 
-## 《在公园的长椅上睡大觉》
-
-这是一个包含唱段、念白、技术提示的完整示例。
+感谢 [@小橘猫_zzz](https://space.bilibili.com/33539494) 老师提供的授权和大力支持！
 
 ```dramark
 ---
@@ -71,7 +69,7 @@ The stores are closed, I tried the door
 = 公园里也没有人
 The park is empty, searched the floor
 = 我该去哪里找好吃的夜宵呢
-How can I find my late night bite that I long for?
+Where can I turn to find the snack I am craving more?
 
 ---
 
@@ -288,18 +286,15 @@ tech:
 
 展示了角色配置和技术设备配置。
 
-### 唱段与念白混合
+### 唱段与译配
 
 ```dramark
-$$
-@小塔
-唱词内容...
-
-!!
-念白段落插入
-!!
-
-继续唱...
+$$ 小帕饿饿歌
+@小帕
+= 哪里会有夜宵呢
+Where to find a bite tonight?
+= 哪里有好吃的呢
+Where's the tasty in my sight?
 $$
 ```
 
@@ -309,13 +304,13 @@ $$
 @小塔 @小帕
 看着她 粉白色的脸｜$夜宵先生$
 她 清澈的双眼｜$你为什么不说话$
+我 无法移开视线｜$你从哪里来的呀$
 ```
 
 ### 技术提示
 
 ```dramark
-<<BGM_ENTER GO>>
-<<LX: SPOT_PARK 渐起>>
+<<BGM_ENTER GO>> <<LX: SPOT_PARK 渐起>>
 
 <<<
 LX: SPOT_DUO 灯光变化同时打亮二人。
@@ -323,3 +318,18 @@ LX: SPOT_DUO 灯光变化同时打亮二人。
 ```
 
 展示了行内 Tech Cue 和块级 Tech Cue 的混合使用。
+
+### 行内动作
+
+```dramark
+@小帕 [惊喜地]
+{蹲下，捧起小塔的手｜小塔醒来}
+那我 还在 忍耐什么
+吃饱再说
+```
+
+### 注释
+
+```dramark
+% 独光 小帕往上场区前方椅子走，后续搬到长椅处。
+```

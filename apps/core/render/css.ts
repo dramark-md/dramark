@@ -590,10 +590,10 @@ function generatePrintThemeCSS(): string {
 .dramark-preview[data-theme="print"] .dm-song-container[data-mode="spoken"]::before {
   content: "";
   position: absolute;
-  left: -0.5rem;
-  right: -0.5rem;
-  top: -0.35rem;
-  bottom: -0.35rem;
+  left: -0.25rem;
+  right: -0.25rem;
+  top: -0.2rem;
+  bottom: -0.2rem;
   border: 1px dashed var(--dm-print-border-spoken);
   border-radius: 4px;
   z-index: -1;

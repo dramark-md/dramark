@@ -270,36 +270,89 @@ renderPreview();
   }
 
   // Tech cue utilities
-  function matchTechCue(payload, techColorMap) {
-    const normalizedPayload = String(payload).toLowerCase().trim();
-    if (!techColorMap) return { color: null };
+  function matchTechCue(payload, colorMap) {
+    const firstToken = extractFirstToken(payload).toLowerCase();
     
-    if (Array.isArray(techColorMap)) {
-      for (const mic of techColorMap) {
-        if (mic.name && normalizedPayload.includes(mic.name.toLowerCase())) {
-          return { color: mic.color };
-        }
-      }
-    } else {
-      for (const [key, color] of Object.entries(techColorMap)) {
-        if (normalizedPayload.includes(key.toLowerCase())) {
-          return { color };
-        }
-      }
+    // Priority 1: Match category name
+    const categoryColor = colorMap.categories.get(firstToken);
+    if (categoryColor) {
+      return { category: firstToken, color: categoryColor };
     }
-    return { color: null };
+    
+    // Priority 2: Match entry id
+    const entryColor = colorMap.entries.get(firstToken);
+    if (entryColor) {
+      return { category: 'unknown', color: entryColor, entryId: firstToken };
+    }
+    
+    // Priority 3: Use fallback color
+    return { category: 'unknown', color: colorMap.fallbackColor };
+  }
+
+  function extractFirstToken(payload) {
+    const trimmed = payload.trim();
+    const tokenMatch = trimmed.match(/^[^\s:]+/u);
+    if (tokenMatch) {
+      return tokenMatch[0];
+    }
+    return trimmed;
   }
 
   function buildTechCueColorMap(techConfig) {
-    const colorMap = {};
-    if (techConfig && Array.isArray(techConfig.mics)) {
-      for (const mic of techConfig.mics) {
-        if (mic.name && mic.color) {
-          colorMap[mic.name.toLowerCase()] = mic.color;
+    const categories = new Map();
+    const entries = new Map();
+    const fallbackColor = (techConfig && techConfig.color) ? techConfig.color : '#888888';
+
+    if (!techConfig) {
+      return { categories, entries, fallbackColor };
+    }
+
+    for (const [key, value] of Object.entries(techConfig)) {
+      if (key === 'mics' || key === 'color' || key === 'keywords') {
+        continue;
+      }
+
+      if (isTechCategory(value)) {
+        // Dynamic category with color and entries
+        if (value.color) {
+          categories.set(key.toLowerCase(), value.color);
+        }
+        
+        if (value.entries) {
+          for (const entry of value.entries) {
+            if (typeof entry.id === 'string') {
+              const entryColor = typeof entry.color === 'string' ? entry.color : value.color;
+              if (entryColor) {
+                entries.set(entry.id.toLowerCase(), entryColor);
+              }
+            }
+          }
+        }
+      } else if (Array.isArray(value)) {
+        // Legacy array format - entries without explicit category
+        for (const entry of value) {
+          if (isTechEntry(entry) && typeof entry.color === 'string') {
+            entries.set(entry.id.toLowerCase(), entry.color);
+          }
         }
       }
     }
-    return colorMap;
+
+    return { categories, entries, fallbackColor };
+  }
+
+  function isTechCategory(value) {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      return false;
+    }
+    return 'color' in value || 'entries' in value;
+  }
+
+  function isTechEntry(value) {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      return false;
+    }
+    return 'id' in value && typeof value.id === 'string';
   }
 
   // AST conversion

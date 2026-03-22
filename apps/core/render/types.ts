@@ -3,7 +3,7 @@ import type { TechConfig, TechEntry } from '../../../src/core/types.js';
 export type PerformanceMode = 'spoken' | 'sung';
 export type TranslationDisplayMode = 'source-only' | 'target-only' | 'bilingual';
 export type TranslationLayoutMode = 'stack' | 'side-by-side';
-export type ThemeMode = 'auto' | 'light' | 'dark';
+export type ThemeMode = 'auto' | 'light' | 'dark' | 'print';
 
 export interface PreviewConfig {
   showTechCues: boolean;

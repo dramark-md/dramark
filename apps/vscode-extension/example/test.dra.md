@@ -65,9 +65,11 @@ It always happens in the midnight -- the hunger strikes
 The stores are closed, I tried the door
 = 公园里也没有人
 The park is empty, searched the floor
+!!
+@小帕
 = 我该去哪里找好吃的夜宵呢
 How can I find my late night bite that I long for?
-
+!!
 ---
 小帕发现了躺着的小塔。
 

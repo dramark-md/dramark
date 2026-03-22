@@ -1,11 +1,12 @@
 import type { Theme, PreviewConfig, ColorScheme } from './types.js';
-import { getColorScheme } from './default-theme.js';
+import { getColorScheme, getPrintColorScheme } from './default-theme.js';
 
 export function generateCSS(theme: Theme, config: PreviewConfig): string {
-  const isDark = config.theme === 'dark' || 
-    (config.theme === 'auto' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const isPrint = config.theme === 'print';
+  const isDark = !isPrint && (config.theme === 'dark' || 
+    (config.theme === 'auto' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches));
   
-  const colors = getColorScheme(theme, isDark ? 'dark' : 'light');
+  const colors = isPrint ? getPrintColorScheme() : getColorScheme(theme, isDark ? 'dark' : 'light');
   
   return `
 /* DraMark Preview Styles */
@@ -20,10 +21,11 @@ export function generateCSS(theme: Theme, config: PreviewConfig): string {
   --dm-character: ${colors.characterName};
   --dm-tech-border: ${colors.techCueBorder};
   --dm-comment: ${colors.commentText};
+  ${isPrint ? '--dm-print-border-sung: #c4a86a;\n  --dm-print-border-spoken: #8a9aaa;' : ''}
   
   background: var(--dm-bg);
   color: var(--dm-text);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: ${isPrint ? 'Georgia, "Times New Roman", serif' : 'system-ui, -apple-system, sans-serif'};
   line-height: 1.4;
   container-type: inline-size;
   container-name: preview;
@@ -67,6 +69,15 @@ export function generateCSS(theme: Theme, config: PreviewConfig): string {
     gap: 1.5rem;
     align-items: start;
     grid-template-columns: 1fr 200px;
+  }
+  
+  /* When only tech cues (no comments), swap: left column for tech cues, center takes right */
+  .dramark-preview[data-has-left="true"][data-has-right="false"] .dm-layout-tablet-inner .dm-row {
+    grid-template-columns: 200px 1fr;
+  }
+  
+  .dm-layout-tablet-inner .dm-row-left {
+    min-width: 0;
   }
   
   .dm-layout-tablet-inner .dm-row-center {
@@ -511,7 +522,113 @@ ${generateTechCueCSS()}
   font-size: 0.875rem;
   color: var(--dm-text);
 }
+${isPrint ? generatePrintThemeCSS() : ''}
 `.trim();
+}
+
+function generatePrintThemeCSS(): string {
+  return `
+/* Print Theme Styles */
+.dramark-preview[data-theme="print"] {
+  background: white;
+}
+
+/* Print: use tablet layout for 2-column, desktop for 3-column */
+.dramark-preview[data-theme="print"][data-columns="2"] .dm-layout-desktop {
+  display: none;
+}
+
+.dramark-preview[data-theme="print"][data-columns="2"] .dm-layout-tablet {
+  display: block;
+}
+
+.dramark-preview[data-theme="print"] .dm-layout-tablet-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.dramark-preview[data-theme="print"] .dm-layout-tablet-inner .dm-row {
+  display: grid;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+/* When only tech cues (no comments): left column for tech cues, center takes right */
+.dramark-preview[data-theme="print"][data-has-left="true"][data-has-right="false"] .dm-layout-tablet-inner .dm-row {
+  grid-template-columns: 200px 1fr;
+}
+
+/* When only comments (no tech cues): center on left, comments on right */
+.dramark-preview[data-theme="print"][data-has-left="false"][data-has-right="true"] .dm-layout-tablet-inner .dm-row {
+  grid-template-columns: 1fr 200px;
+}
+
+.dramark-preview[data-theme="print"] .dm-song-container {
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  border: none;
+  padding: 0;
+}
+
+.dramark-preview[data-theme="print"] .dm-song-container[data-mode="sung"]::before {
+  content: "";
+  position: absolute;
+  left: -0.5rem;
+  right: -0.5rem;
+  top: -0.35rem;
+  bottom: -0.35rem;
+  border: 1px solid var(--dm-print-border-sung);
+  border-radius: 4px;
+  z-index: -1;
+  background: transparent;
+}
+
+.dramark-preview[data-theme="print"] .dm-song-container[data-mode="spoken"]::before {
+  content: "";
+  position: absolute;
+  left: -0.5rem;
+  right: -0.5rem;
+  top: -0.35rem;
+  bottom: -0.35rem;
+  border: 1px dashed var(--dm-print-border-spoken);
+  border-radius: 4px;
+  z-index: -1;
+  background: transparent;
+}
+
+.dramark-preview[data-theme="print"] .dm-song-title {
+  break-after: avoid;
+}
+
+.dramark-preview[data-theme="print"] .dm-character,
+.dramark-preview[data-theme="print"] .dm-tech-cue-block,
+.dramark-preview[data-theme="print"] .dm-comment,
+.dramark-preview[data-theme="print"] .dm-translation {
+  break-inside: avoid;
+}
+
+.dramark-preview[data-theme="print"] .dm-tech-cue-block {
+  background: #f5f5f5;
+  border-color: #9ca3af;
+}
+
+.dramark-preview[data-theme="print"] .dm-tech-cue-header {
+  color: #374151;
+  border-bottom-color: #d1d5db;
+}
+
+.dramark-preview[data-theme="print"] .dm-tech-cue-content {
+  color: #374151;
+}
+
+.dramark-preview[data-theme="print"] .dm-inline-spoken {
+  color: #888888;
+}
+`;
 }
 
 function generateTechCueCSS(): string {

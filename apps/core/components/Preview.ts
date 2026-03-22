@@ -39,9 +39,27 @@ export function createPreviewHTML(props: PreviewProps): string {
 }
 
 function renderTabletLayout(layout: ColumnarLayout, config: PreviewConfig): string {
-  // 两栏布局：每行保持对齐，但左栏内容移到 center 内部
+  const hasRight = config.showComments && layout.right.length > 0;
+  const hasLeft = config.showTechCues && layout.left.length > 0;
+  
   const rowsHtml = layout.rows.map((row) => {
-    // center 列：如果有左栏内容，放在 center 内容之前
+    if (!hasRight && hasLeft) {
+      const leftHtml = row.left
+        ? `<div class="dm-row-left">${renderTechCueBlock(row.left)}</div>`
+        : '<div class="dm-row-left dm-row-empty" aria-hidden="true"></div>';
+      
+      const centerHtml = row.center
+        ? `<div class="dm-row-center">${renderBlock(row.center, config)}</div>`
+        : '<div class="dm-row-center dm-row-empty" aria-hidden="true"></div>';
+      
+      return `
+        <div class="dm-row" data-has-left="${!!row.left}" data-has-center="${!!row.center}" data-has-right="false">
+          ${leftHtml}
+          ${centerHtml}
+        </div>
+      `;
+    }
+    
     const centerParts: string[] = [];
     if (row.left !== null) {
       centerParts.push(renderTechCueBlock(row.left));
@@ -54,7 +72,6 @@ function renderTabletLayout(layout: ColumnarLayout, config: PreviewConfig): stri
       ? `<div class="dm-row-center">${centerParts.join('')}</div>`
       : '<div class="dm-row-center dm-row-empty" aria-hidden="true"></div>';
     
-    // right 列：保持不变
     const rightHtml = row.right !== null
       ? `<div class="dm-row-right">${renderCommentBlock(row.right)}</div>`
       : '<div class="dm-row-right dm-row-empty" aria-hidden="true"></div>';
@@ -68,7 +85,7 @@ function renderTabletLayout(layout: ColumnarLayout, config: PreviewConfig): stri
   }).join('');
   
   return `
-    <div class="dramark-layout dm-layout-tablet-inner">
+    <div class="dm-layout-tablet-inner">
       ${rowsHtml}
     </div>
   `;

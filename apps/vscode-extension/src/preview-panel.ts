@@ -311,6 +311,9 @@ ${configHTML}
   }
 
   private resolveThemeMode(): PreviewConfig['theme'] {
+    if (this.config.theme === 'print') {
+      return 'print';
+    }
     if (this.config.theme !== 'auto') {
       return this.config.theme;
     }
@@ -377,6 +380,7 @@ ${configHTML}
             <option value="auto" ${config.theme === 'auto' ? 'selected' : ''}>Auto</option>
             <option value="light" ${config.theme === 'light' ? 'selected' : ''}>Light</option>
             <option value="dark" ${config.theme === 'dark' ? 'selected' : ''}>Dark</option>
+            <option value="print" ${config.theme === 'print' ? 'selected' : ''}>Print</option>
           </select>
         </div>
       </div>

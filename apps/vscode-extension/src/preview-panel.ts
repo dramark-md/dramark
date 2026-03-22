@@ -100,12 +100,15 @@ export class PreviewPanel {
     };
     const techConfig = this.latestViewModel.config.tech ?? { mics: [] };
     
+    // Generate CSS by running render once on extension side
+    const previewCss = generateCSS(defaultTheme, renderConfig);
+    
     // AST and config for the standalone renderer
     const astJson = JSON.stringify(this.latestViewModel.tree);
     const techConfigJson = JSON.stringify(techConfig);
     const configJson = JSON.stringify(renderConfig);
     
-    const exportHtml = this.buildStandaloneExportHtml(astJson, techConfigJson, configJson, effectiveTheme);
+    const exportHtml = this.buildStandaloneExportHtml(astJson, techConfigJson, configJson, effectiveTheme, previewCss);
 
     // Save dialog
     const defaultUri = this.latestDocumentUri.with({
@@ -133,7 +136,7 @@ export class PreviewPanel {
     }
   }
 
-  private buildStandaloneExportHtml(astJson: string, techConfigJson: string, initialConfigJson: string, initialTheme: string): string {
+  private buildStandaloneExportHtml(astJson: string, techConfigJson: string, initialConfigJson: string, initialTheme: string, previewCss: string): string {
     const rendererJs = this.getStandaloneRendererJs();
     
     return `<!DOCTYPE html>
@@ -142,6 +145,9 @@ export class PreviewPanel {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DraMark Export</title>
+<style id="dramark-preview-css">
+  ${previewCss}
+</style>
 <style>
   ${this.getExportCSS()}
 </style>
@@ -163,6 +169,12 @@ let CURRENT_CONFIG = ${initialConfigJson};
 function renderPreview() {
   const result = DraMarkRenderer.render(AST, CURRENT_CONFIG, TECH_CONFIG);
   document.getElementById('preview-container').innerHTML = result.previewHTML;
+  
+  // Update CSS
+  const cssEl = document.getElementById('dramark-preview-css');
+  if (cssEl) {
+    cssEl.textContent = result.css;
+  }
   
   // Update theme on document element
   document.documentElement.setAttribute('data-theme', CURRENT_CONFIG.theme);

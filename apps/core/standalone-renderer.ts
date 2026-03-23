@@ -946,7 +946,7 @@ export function getStandaloneRendererJs(): string {
   .dm-heading[data-depth="2"] { font-size: 1.25rem; }
   .dm-heading[data-depth="3"] { font-size: 1.1rem; }
   .dm-global-action { margin: 0.35rem 0; padding: 0.2rem 0; font-style: italic; color: var(--dm-text-muted); }
-  .dm-translation { display: flex; gap: 1rem; margin: 0.5rem 0; }
+  .dm-translation { display: flex; gap: 1rem; margin: 0.35rem 0; }
   .dm-translation[data-layout="stack"] { flex-direction: column; gap: 0.25rem; }
   .dm-translation-source { flex: 1; font-style: italic; color: var(--dm-text-muted); min-width: 0; }
   .dm-translation-target { flex: 1; min-width: 0; }

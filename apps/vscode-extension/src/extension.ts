@@ -77,6 +77,23 @@ export function activate(context: vscode.ExtensionContext): void {
   });
 
   const exportMenu = vscode.commands.registerCommand('dramark.export', async () => {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document.languageId !== 'dramark') {
+      vscode.window.showInformationMessage('Open a DraMark document first.');
+      return;
+    }
+
+    const documentUri = editor.document.uri;
+    let viewModel = controller.getViewModel(documentUri.toString());
+    if (!viewModel) {
+      controller.openDocument(documentUri.toString(), editor.document.getText());
+      viewModel = controller.getViewModel(documentUri.toString());
+    }
+    if (!viewModel) {
+      vscode.window.showErrorMessage('Failed to parse current DraMark document for export.');
+      return;
+    }
+
     const items: vscode.QuickPickItem[] = [
       { label: '$(file-pdf) Export to PDF', description: 'Generate PDF file via Chrome/Chromium' },
       { label: '$(file-code) Export to HTML', description: 'Save as standalone HTML file' },
@@ -89,9 +106,9 @@ export function activate(context: vscode.ExtensionContext): void {
     if (!selected) return;
     
     if (selected.label.includes('PDF')) {
-      await preview.exportPdf();
+      await preview.exportPdf(documentUri, viewModel);
     } else if (selected.label.includes('HTML')) {
-      await preview.exportHtml();
+      await preview.exportHtml(documentUri, viewModel);
     }
   });
 

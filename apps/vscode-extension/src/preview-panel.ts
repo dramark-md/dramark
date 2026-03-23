@@ -80,11 +80,14 @@ export class PreviewPanel {
     this.rerender();
   }
 
-  async exportPdf(): Promise<void> {
-    if (!this.latestViewModel || !this.latestDocumentUri) {
-      vscode.window.showInformationMessage('Open DraMark Preview first, then export PDF.');
+  async exportPdf(documentUri?: vscode.Uri, viewModel?: ParseViewModel): Promise<void> {
+    const source = this.resolveExportSource(documentUri, viewModel);
+    if (!source) {
+      vscode.window.showInformationMessage('Open a DraMark document first, then export PDF.');
       return;
     }
+
+    const { documentUri: targetUri, viewModel: targetViewModel } = source;
 
     const chromePath = await detectChromePath();
     if (!chromePath) {
@@ -103,13 +106,13 @@ export class PreviewPanel {
       return;
     }
 
-    const exportHtml = await this.generateExportHtmlContent();
+    const exportHtml = await this.generateExportHtmlContent(targetUri, targetViewModel, 'pdf');
     if (!exportHtml) {
       return;
     }
 
-    const defaultUri = this.latestDocumentUri.with({
-      path: this.latestDocumentUri.path.replace(/\.dra\.md$/i, '.pdf'),
+    const defaultUri = targetUri.with({
+      path: targetUri.path.replace(/\.dra\.md$/i, '.pdf'),
     });
 
     const saveUri = await vscode.window.showSaveDialog({
@@ -142,19 +145,22 @@ export class PreviewPanel {
     );
   }
 
-  async exportHtml(): Promise<void> {
-    if (!this.latestViewModel || !this.latestDocumentUri) {
-      vscode.window.showInformationMessage('Open DraMark Preview first, then export HTML.');
+  async exportHtml(documentUri?: vscode.Uri, viewModel?: ParseViewModel): Promise<void> {
+    const source = this.resolveExportSource(documentUri, viewModel);
+    if (!source) {
+      vscode.window.showInformationMessage('Open a DraMark document first, then export HTML.');
       return;
     }
 
-    const exportHtml = await this.generateExportHtmlContent();
+    const { documentUri: targetUri, viewModel: targetViewModel } = source;
+
+    const exportHtml = await this.generateExportHtmlContent(targetUri, targetViewModel, 'html');
     if (!exportHtml) {
       return;
     }
 
-    const defaultUri = this.latestDocumentUri.with({
-      path: this.latestDocumentUri.path.replace(/\.dra\.md$/i, '.html'),
+    const defaultUri = targetUri.with({
+      path: targetUri.path.replace(/\.dra\.md$/i, '.html'),
     });
 
     const saveUri = await vscode.window.showSaveDialog({
@@ -178,21 +184,33 @@ export class PreviewPanel {
     }
   }
 
-  private async generateExportHtmlContent(): Promise<string | null> {
-    if (!this.latestViewModel || !this.latestDocumentUri) {
+  private resolveExportSource(
+    documentUri?: vscode.Uri,
+    viewModel?: ParseViewModel,
+  ): { documentUri: vscode.Uri; viewModel: ParseViewModel } | null {
+    const targetUri = documentUri ?? this.latestDocumentUri;
+    const targetViewModel = viewModel ?? this.latestViewModel;
+    if (!targetUri || !targetViewModel) {
       return null;
     }
+    return { documentUri: targetUri, viewModel: targetViewModel };
+  }
 
-    const effectiveTheme = this.resolveThemeMode();
+  private async generateExportHtmlContent(
+    documentUri: vscode.Uri,
+    viewModel: ParseViewModel,
+    exportFormat: 'html' | 'pdf',
+  ): Promise<string | null> {
+    const exportTheme: PreviewConfig['theme'] = exportFormat === 'pdf' ? 'print' : 'auto';
     const renderConfig = {
       ...this.config,
-      theme: effectiveTheme,
+      theme: exportTheme,
     };
-    const techConfig = this.latestViewModel.config.tech ?? { mics: [] };
+    const techConfig = viewModel.config.tech ?? { mics: [] };
     
     const previewCss = generateCSS(defaultTheme, renderConfig);
     
-    const astJson = JSON.stringify(this.latestViewModel.tree);
+    const astJson = JSON.stringify(viewModel.tree);
     const techConfigJson = JSON.stringify(techConfig);
     const configJson = JSON.stringify(renderConfig);
     const rendererJs = await this.buildStandaloneRendererBundle();
@@ -201,10 +219,10 @@ export class PreviewPanel {
       astJson,
       techConfigJson,
       initialConfigJson: configJson,
-      initialTheme: effectiveTheme,
+      initialTheme: exportTheme,
       previewCss,
       rendererJs,
-      config: this.config,
+      config: renderConfig,
       configOpen: this.configOpen,
     });
   }

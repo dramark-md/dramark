@@ -13,6 +13,10 @@ interface BuildStandaloneExportHtmlParams {
   configOpen: boolean;
 }
 
+function safeJsonForScript(json: string): string {
+  return json.replace(/<\//g, '<\\/');
+}
+
 export function buildStandaloneExportHtml(params: BuildStandaloneExportHtmlParams): string {
   const {
     astJson,
@@ -25,6 +29,10 @@ export function buildStandaloneExportHtml(params: BuildStandaloneExportHtmlParam
     config,
     configOpen,
   } = params;
+
+  const safeAstJson = safeJsonForScript(astJson);
+  const safeTechConfigJson = safeJsonForScript(techConfigJson);
+  const safeInitialConfigJson = safeJsonForScript(initialConfigJson);
 
   return `<!DOCTYPE html>
 <html lang="en" data-theme="${initialTheme}">
@@ -48,9 +56,9 @@ ${createExportConfigPanelHTML(config, configOpen, initialTheme)}
 ${rendererJs}
 
 // Document data
-const AST = ${astJson};
-const TECH_CONFIG = ${techConfigJson};
-let CURRENT_CONFIG = ${initialConfigJson};
+const AST = ${safeAstJson};
+const TECH_CONFIG = ${safeTechConfigJson};
+let CURRENT_CONFIG = ${safeInitialConfigJson};
 
 // Render function
 function renderPreview() {

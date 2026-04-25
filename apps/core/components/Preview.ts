@@ -263,9 +263,7 @@ function renderDialogueContent(
   return '';
 }
 
-function renderInlineChildren(children: DialogueChild[] | unknown): string {
-  if (!Array.isArray(children)) return '';
-  
+function renderInlineChildren(children: DialogueChild[]): string {
   return children.map(child => {
     switch (child.type) {
       case 'text':
@@ -273,9 +271,9 @@ function renderInlineChildren(children: DialogueChild[] | unknown): string {
       case 'break':
         return '<br />';
       case 'emphasis':
-        return `<em>${child.children?.map(c => escapeHtml(c.value)).join('') || ''}</em>`;
+        return `<em>${child.children.map(c => escapeHtml(c.value)).join('')}</em>`;
       case 'strong':
-        return `<strong>${child.children?.map(c => escapeHtml(c.value)).join('') || ''}</strong>`;
+        return `<strong>${child.children.map(c => escapeHtml(c.value)).join('')}</strong>`;
       case 'inline-action':
         return `<span class="dm-inline-action">{${escapeHtml(child.value || '')}}</span>`;
       case 'inline-song':

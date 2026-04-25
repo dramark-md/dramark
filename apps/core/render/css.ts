@@ -270,15 +270,7 @@ export function generateCSS(theme: Theme, config: PreviewConfig): string {
   font-size: 0.75rem;
   font-family: monospace;
   border: 1px solid var(--dm-tech-border);
-}
-
-/* Tech Cue Colors */
-.dm-inline-tech-cue {
   background: rgba(128, 128, 128, 0.1);
-}
-
-.dm-tech-cue-block {
-  background: rgba(128, 128, 128, 0.05);
 }
 
 /* Block Tech Cue */

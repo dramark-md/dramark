@@ -127,10 +127,10 @@
   },
   "devDependencies": {
     "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.7.1",
     "esbuild": "^0.24.0"
   },
   "dependencies": {
-    "@vscode/vsce": "^3.7.1",
     "puppeteer-core": "^23.11.1"
   }
 }

@@ -192,11 +192,18 @@ export function getFrontmatterCompletions(
       if (FRONTMATTER_SCHEMA[rootKey]) {
         keyList = FRONTMATTER_SCHEMA[rootKey];
       }
-    } else if (context.path.length === 2 && context.path[0] === 'tech') {
-      const subKey = context.path[1];
-      if (subKey !== 'mics' && subKey !== 'keywords' && subKey !== 'color') {
-        keyList = ['color', 'entries'];
+    } else if (context.path.length === 2) {
+      const seqKey = `${context.path[0]}.${context.path[1]}`;
+      if (SEQ_ITEM_SCHEMA[seqKey]) {
+        keyList = SEQ_ITEM_SCHEMA[seqKey];
+      } else if (context.path[0] === 'tech') {
+        const subKey = context.path[1];
+        if (subKey !== 'mics' && subKey !== 'keywords' && subKey !== 'color') {
+          keyList = ['color', 'entries'];
+        }
       }
+    } else if (context.path.length === 3 && context.path[0] === 'tech' && context.path[2] === 'entries') {
+      keyList = SEQ_ITEM_SCHEMA['tech.entries'] ?? [];
     }
 
     keyList.forEach(k => {

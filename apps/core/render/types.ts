@@ -84,7 +84,8 @@ export type DialogueChild =
   | { type: 'inline-action'; value: string }
   | { type: 'inline-song'; value: string }
   | { type: 'inline-spoken'; value: string }
-  | { type: 'inline-tech-cue'; payload: string; color?: string };
+  | { type: 'inline-tech-cue'; payload: string; color?: string }
+  | { type: 'html'; value: string };
 
 export interface GlobalActionBlock extends BaseRenderBlock {
   type: 'global-action';

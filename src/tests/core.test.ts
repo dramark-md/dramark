@@ -246,3 +246,106 @@ describe('generateCSS print theme', () => {
     expect(css).not.toContain('@media print');
   });
 });
+
+describe('image support in character dialogue', () => {
+  const makeContext = (ast: unknown) => ({
+    ast,
+    techConfig: { mics: [] },
+    config: {
+      showTechCues: true,
+      showComments: true,
+      translationMode: 'bilingual' as const,
+      translationLayout: 'side-by-side' as const,
+      theme: 'light' as const,
+    },
+    theme: defaultTheme,
+    techColorMap: buildTechCueColorMap({ mics: [] }),
+  });
+
+  it('renders inline image inside character dialogue as image DialogueChild', () => {
+    const input = ['@哈姆雷特', '看这幅画 ![肖像](portrait.png "一幅画")', '它让我想起了父亲'].join('\n');
+    const parsed = parseDraMark(input);
+    const blocks = convertAstToRenderBlocks(makeContext(parsed.tree));
+
+    const charBlock = blocks.find((b) => b.type === 'character');
+    expect(charBlock).toBeDefined();
+    expect(charBlock!.type).toBe('character');
+
+    const paragraphs = (charBlock as any).content.filter(
+      (c: any) => c.type === 'paragraph',
+    );
+    expect(paragraphs.length).toBeGreaterThanOrEqual(1);
+
+    const images = paragraphs[0].children.filter(
+      (child: any) => child.type === 'image',
+    );
+    expect(images).toHaveLength(1);
+    expect(images[0].url).toBe('portrait.png');
+    expect(images[0].alt).toBe('肖像');
+    expect(images[0].title).toBe('一幅画');
+  });
+
+  it('renders image without title or alt', () => {
+    const input = ['@哈姆雷特', '![](photo.jpg)'].join('\n');
+    const parsed = parseDraMark(input);
+    const blocks = convertAstToRenderBlocks(makeContext(parsed.tree));
+
+    const charBlock = blocks.find((b) => b.type === 'character') as any;
+    expect(charBlock).toBeDefined();
+
+    const images = charBlock.content[0].children.filter(
+      (child: any) => child.type === 'image',
+    );
+    expect(images).toHaveLength(1);
+    expect(images[0].url).toBe('photo.jpg');
+    expect(images[0].alt).toBe('');
+    expect(images[0].title).toBeUndefined();
+  });
+
+  it('renders HTML <img> tag inside character dialogue', () => {
+    const input = ['@哈姆雷特', '看这幅画 <img src="portrait.png" alt="肖像" title="一幅画">', '继续台词'].join('\n');
+    const parsed = parseDraMark(input);
+    const blocks = convertAstToRenderBlocks(makeContext(parsed.tree));
+
+    const charBlock = blocks.find((b) => b.type === 'character') as any;
+    expect(charBlock).toBeDefined();
+
+    const htmlNodes = charBlock.content[0].children.filter(
+      (child: any) => child.type === 'html',
+    );
+    expect(htmlNodes).toHaveLength(1);
+    expect(htmlNodes[0].value).toContain('<img');
+    expect(htmlNodes[0].value).toContain('portrait.png');
+  });
+
+  it('renders HTML <img> tag without attributes in global action', () => {
+    const input = ['<img src="bg.jpg">', '@哈姆雷特', '台词'].join('\n');
+    const parsed = parseDraMark(input);
+    const blocks = convertAstToRenderBlocks(makeContext(parsed.tree));
+
+    const globalBlock = blocks.find((b) => b.type === 'global-action') as any;
+    expect(globalBlock).toBeDefined();
+
+    const htmlNodes = globalBlock.content[0].children.filter(
+      (child: any) => child.type === 'html',
+    );
+    expect(htmlNodes).toHaveLength(1);
+    expect(htmlNodes[0].value).toContain('bg.jpg');
+  });
+
+  it('renders inline image in global action block', () => {
+    const input = ['舞台背景 ![bg](stage-bg.png)', '@哈姆雷特', '台词'].join('\n');
+    const parsed = parseDraMark(input);
+    const blocks = convertAstToRenderBlocks(makeContext(parsed.tree));
+
+    const globalBlock = blocks.find((b) => b.type === 'global-action') as any;
+    expect(globalBlock).toBeDefined();
+
+    const images = globalBlock.content[0].children.filter(
+      (child: any) => child.type === 'image',
+    );
+    expect(images).toHaveLength(1);
+    expect(images[0].url).toBe('stage-bg.png');
+    expect(images[0].alt).toBe('bg');
+  });
+});

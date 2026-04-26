@@ -288,6 +288,8 @@ function renderInlineChildren(children: DialogueChild[]): string {
         return `<span class="dm-inline-spoken">${escapeHtml(child.value || '')}</span>`;
       case 'inline-tech-cue':
         return renderInlineTechCue({ payload: child.payload || '', color: child.color });
+      case 'html':
+        return child.value || '';
       default:
         return '';
     }

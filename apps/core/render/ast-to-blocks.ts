@@ -11,7 +11,7 @@ import type {
 import { matchTechCue } from './tech-cue-colors.js';
 
 interface InlineChild {
-  type: 'text' | 'break' | 'emphasis' | 'strong' | 'image' | 'inline-action' | 'inline-song' | 'inline-spoken' | 'inline-tech-cue';
+  type: 'text' | 'break' | 'emphasis' | 'strong' | 'image' | 'inline-action' | 'inline-song' | 'inline-spoken' | 'inline-tech-cue' | 'html';
   value?: string;
   children?: Array<{ type: 'text'; value: string }>;
   url?: string;
@@ -268,6 +268,12 @@ function convertNode(node: unknown, context: RenderContext, performanceMode: 'sp
       return { type: 'thematic-break', performanceMode };
     case 'heading':
       return convertHeading(typedNode, context, performanceMode);
+    case 'html':
+      return {
+        type: 'global-action',
+        content: [{ type: 'paragraph', children: [{ type: 'html', value: String(typedNode.value || '') }] }],
+        performanceMode,
+      };
     default:
       return null;
   }
@@ -405,6 +411,14 @@ function convertContentNode(node: unknown, context: RenderContext): ContentNodeR
         data: { payload, color: match.color },
       };
     }
+    case 'html':
+      return {
+        isTechCue: false,
+        data: {
+          type: 'html',
+          value: String(typedNode.value || ''),
+        } as InlineChild,
+      };
     default:
       return null;
   }
@@ -441,7 +455,7 @@ function convertInlineChild(node: unknown, context: RenderContext): InlineChild 
       return {
         type: 'image',
         url: String(typedNode.url || ''),
-        alt: extractTextContent(typedNode.alt ?? typedNode.children),
+        alt: typeof typedNode.alt === 'string' ? typedNode.alt : extractTextContent(typedNode.children),
         title: typeof typedNode.title === 'string' ? typedNode.title : undefined,
       };
     case 'inline-spoken':
@@ -454,6 +468,8 @@ function convertInlineChild(node: unknown, context: RenderContext): InlineChild 
       const match = matchTechCue(payload, context.techColorMap);
       return { type: 'inline-tech-cue', payload, color: match.color };
     }
+    case 'html':
+      return { type: 'html', value: String(typedNode.value || '') };
     default:
       return null;
   }

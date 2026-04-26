@@ -1,6 +1,7 @@
 import * as esbuild from 'esbuild';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const watch = process.argv.includes('--watch');
 
@@ -18,10 +19,9 @@ const buildOptions = {
     {
       name: 'puppeteer-externals',
       setup(build) {
-        build.onResolve({ filter: /^(spawn-sync|puppeteer\/internal\/.*)$/ }, () => ({
-          path: '',
+        build.onResolve({ filter: /^(spawn-sync|puppeteer\/internal\/.*)$/ }, (args) => ({
+          path: args.path,
           external: true,
-          namespace: 'puppeteer-externals',
         }));
       },
     },
@@ -30,7 +30,7 @@ const buildOptions = {
 
 async function buildStandaloneRenderer() {
   const runtimeEntryPath = path.resolve(
-    path.dirname(new URL(import.meta.url).pathname),
+    path.dirname(fileURLToPath(import.meta.url)),
     '..', 'core', 'standalone-runtime.ts',
   );
   const entryCode = [
@@ -63,6 +63,7 @@ async function buildStandaloneRenderer() {
 }
 
 if (watch) {
+  await buildStandaloneRenderer();
   const context = await esbuild.context(buildOptions);
   await context.watch();
   console.log('watching...');

@@ -231,7 +231,15 @@ export class PreviewPanel {
 
   private async buildStandaloneRendererBundle(): Promise<string> {
     const bundlePath = path.resolve(this.extensionUri.fsPath, 'dist', 'standalone-renderer.js');
-    return fs.promises.readFile(bundlePath, 'utf-8');
+    try {
+      return await fs.promises.readFile(bundlePath, 'utf-8');
+    } catch (err) {
+      throw new Error(
+        `Standalone renderer bundle not found at ${bundlePath}. ` +
+        `Please rebuild the extension (run 'pnpm build' in apps/vscode-extension).`,
+        { cause: err },
+      );
+    }
   }
 
   dispose(): void {

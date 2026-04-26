@@ -1,10 +1,11 @@
+import serialize from 'serialize-javascript';
 import type { PreviewConfig } from './render/types.js';
 import { createConfigPanelHTML, settingsGearSvg } from './components/ConfigPanel.js';
 
 interface BuildStandaloneExportHtmlParams {
-  astJson: string;
-  techConfigJson: string;
-  initialConfigJson: string;
+  ast: unknown;
+  techConfig: unknown;
+  initialConfig: PreviewConfig;
   initialTheme: string;
   previewCss: string;
   overrideCss: string;
@@ -13,15 +14,11 @@ interface BuildStandaloneExportHtmlParams {
   configOpen: boolean;
 }
 
-function safeJsonForScript(json: string): string {
-  return json.replace(/<\//g, '<\\/');
-}
-
 export function buildStandaloneExportHtml(params: BuildStandaloneExportHtmlParams): string {
   const {
-    astJson,
-    techConfigJson,
-    initialConfigJson,
+    ast,
+    techConfig,
+    initialConfig,
     initialTheme,
     previewCss,
     overrideCss,
@@ -30,9 +27,9 @@ export function buildStandaloneExportHtml(params: BuildStandaloneExportHtmlParam
     configOpen,
   } = params;
 
-  const safeAstJson = safeJsonForScript(astJson);
-  const safeTechConfigJson = safeJsonForScript(techConfigJson);
-  const safeInitialConfigJson = safeJsonForScript(initialConfigJson);
+  const safeAst = serialize(ast, { isJSON: true });
+  const safeTechConfig = serialize(techConfig, { isJSON: true });
+  const safeInitialConfig = serialize(initialConfig, { isJSON: true });
 
   return `<!DOCTYPE html>
 <html lang="en" data-theme="${initialTheme}">
@@ -56,9 +53,9 @@ ${createExportConfigPanelHTML(config, configOpen, initialTheme)}
 ${rendererJs}
 
 // Document data
-const AST = ${safeAstJson};
-const TECH_CONFIG = ${safeTechConfigJson};
-let CURRENT_CONFIG = ${safeInitialConfigJson};
+const AST = ${safeAst};
+const TECH_CONFIG = ${safeTechConfig};
+let CURRENT_CONFIG = ${safeInitialConfig};
 
 // Render function
 function renderPreview() {

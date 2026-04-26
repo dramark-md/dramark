@@ -170,9 +170,15 @@ describe('render/comment layout', () => {
 
 describe('buildStandaloneExportHtml', () => {
   const defaultParams = {
-    astJson: '{}',
-    techConfigJson: '{"mics":[]}',
-    initialConfigJson: '{"theme":"print"}',
+    ast: {},
+    techConfig: { mics: [] },
+    initialConfig: {
+      showTechCues: true,
+      showComments: true,
+      translationMode: 'bilingual' as const,
+      translationLayout: 'side-by-side' as const,
+      theme: 'print' as const,
+    },
     initialTheme: 'print',
     previewCss: '/* test css */',
     overrideCss: '/* override css */',

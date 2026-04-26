@@ -214,15 +214,12 @@ export class PreviewPanel {
     
     const previewCss = generateCSS(defaultTheme, renderConfig);
     
-    const astJson = JSON.stringify(viewModel.tree);
-    const techConfigJson = JSON.stringify(techConfig);
-    const configJson = JSON.stringify(renderConfig);
     const rendererJs = await this.buildStandaloneRendererBundle();
     
     return buildStandaloneExportHtml({
-      astJson,
-      techConfigJson,
-      initialConfigJson: configJson,
+      ast: viewModel.tree,
+      techConfig,
+      initialConfig: renderConfig,
       initialTheme: exportTheme,
       previewCss,
       overrideCss: exportOverridesCss,
